@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 // TODO:
 // - set up roles for different distribution pools
 // - set up upgradability proxy
-// - set up transparrent upgradability
+// - set up transparent upgradability
 // - supply and distribution managment
 
 contract ALGM is ERC1155, AccessControl, ERC1155Burnable, ERC1155Supply {
