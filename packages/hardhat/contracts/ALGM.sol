@@ -1,25 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 
-contract ALGM is Initializable, ERC1155Upgradeable, AccessControlUpgradeable, ERC1155BurnableUpgradeable, ERC1155SupplyUpgradeable {
+// @notice ALGM ERC1155 governance token contract
+// Features:
+// - Mintable
+// - Burnable
+// - Supply Tracking
+// - Role-based access control
+
+// TODO:
+// - set up roles for different distribution pools
+// - set up upgradability proxy
+// - set up transparrent upgradability
+// - supply and distribution managment
+
+contract ALGM is ERC1155, AccessControl, ERC1155Burnable, ERC1155Supply {
     bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() initializer {}
-
-    function initialize() initializer public {
-        __ERC1155_init("");
-        __AccessControl_init();
-        __ERC1155Burnable_init();
-        __ERC1155Supply_init();
-
+    constructor() ERC1155("") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(URI_SETTER_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
@@ -47,7 +51,7 @@ contract ALGM is Initializable, ERC1155Upgradeable, AccessControlUpgradeable, ER
 
     function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
         internal
-        override(ERC1155Upgradeable, ERC1155SupplyUpgradeable)
+        override(ERC1155, ERC1155Supply)
     {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
@@ -55,7 +59,7 @@ contract ALGM is Initializable, ERC1155Upgradeable, AccessControlUpgradeable, ER
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC1155Upgradeable, AccessControlUpgradeable)
+        override(ERC1155, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
