@@ -23,10 +23,12 @@ And learn more here: https://www.npmjs.com/package/hardhat-deploy
 
 */
 
+const contractName = "ALGM";
+
 const main = async () => {
   console.log("\n\n 📡 Deploying...\n");
 
-  const yourContract = await deploy("YourContract"); // <-- add in constructor args like line 19 vvvv
+  const yourContract = await deploy(contractName); // <-- add in constructor args like line 19 vvvv
   // use for local token bridging
   // const mockToken = await deploy("MockERC20") // <-- add in constructor args like line 19 vvvv
 
@@ -48,7 +50,7 @@ const main = async () => {
 
   /*
   //If you want to send some ETH to a contract on deploy (make your constructor payable!)
-  const yourContract = await deploy("YourContract", [], {
+  const yourContract = await deploy(contractName, [], {
   value: ethers.utils.parseEther("0.05")
   });
   */
@@ -56,7 +58,7 @@ const main = async () => {
   /*
   //If you want to link a library into your contract:
   // reference: https://github.com/austintgriffith/scaffold-eth/blob/using-libraries-example/packages/hardhat/scripts/deploy.js#L19
-  const yourContract = await deploy("YourContract", [], {}, {
+  const yourContract = await deploy(contractName, [], {}, {
    LibraryName: **LibraryAddress**
   });
   */
@@ -64,7 +66,7 @@ const main = async () => {
   //If you want to verify your contract on tenderly.co (see setup details in the scaffold-eth README!)
   /*
   await tenderlyVerify(
-    {contractName: "YourContract",
+    {contractName: contractName,
      contractAddress: yourContract.address
   })
   */
