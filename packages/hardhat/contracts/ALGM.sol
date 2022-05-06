@@ -4,11 +4,11 @@
 // - set up roles for different distribution pools [+]
 // - supply and distribution managment [+]
 // - expose owner and owner transfer [+]
-
+//
 // - move funds from EOA to contracts
 // - multisig for treasuries
 // - add events for the platform
-
+//
 // - set up upgradability proxy
 // - set up transparent upgradability
 
@@ -20,14 +20,19 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
 
 /*
  * @notice ALGM ERC20 governance token contract
+ *
+ * https://docs.algem.io/algm-token
+ *
  * Features:
  * - Burnable
  * - Permits (gasless allowance)
  * - Votes (keeps track of historical balances)
  * - Role-based access control
+ * - Snapshots (ability to store shnapshots of balances that can be retrieved later)
  */
 contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
     address public                     Owner;
@@ -40,9 +45,9 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
 
     // @notice      token distribution among treasuries
     uint32 public constant      IncentiveDistrib = 60000000;
-    uint32 public constant      TeamDistrib = 15000000;
-    uint32 public constant      CommunityDistrib = 15000000;
-    uint32 public constant      ReserveDistrib = 10000000;
+    uint32 public constant      TeamDistrib = 18000000;
+    uint32 public constant      CommunityDistrib = 10000000;
+    uint32 public constant      ReserveDistrib = 12000000;
 
     // @notice      time to release in years
     uint8 public constant      IncentiveTime = 6;
@@ -59,6 +64,10 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
     } Fund public fund;
 
     // @notice      contract constructor
+    // @param       [address] _incentive => Incentive treasury address
+    // @param       [address] _team => Team treasury address
+    // @param       [address] _community => Community treasury address
+    // @param       [address] _reserve => Reserve treasury address
     constructor(address _incentive,
                 address _team,
                 address _community,
@@ -103,6 +112,10 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
         /* _grantRole(DEFAULT_ADMIN_ROLE, 0xE2532766D03fd3796d826233924DE071AEb996d9);
         Owner = 0xE2532766D03fd3796d826233924DE071AEb996d9; */
         // !!!!!! DEV HARDHAT !!!!!!!!! <------------------------------------------------------
+    }
+
+    function snapshot() public onlyOwner {
+        _snapshot();
     }
 
     function changeOwner(address _newOwner) external onlyRole(DEFAULT_ADMIN_ROLE) {
