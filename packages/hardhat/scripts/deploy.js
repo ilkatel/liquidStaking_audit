@@ -23,7 +23,7 @@ And learn more here: https://www.npmjs.com/package/hardhat-deploy
 
 */
 
-const contractName = "ALGM";
+const contractName = "Contract";
 
 const main = async () => {
   console.log("\n\n 📡 Deploying...\n");

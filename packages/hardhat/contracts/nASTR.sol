@@ -29,7 +29,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
  * - Permits (gasless allowance)
  * - Snapshots (ability to store shnapshots of balances that can be retrieved later)
  */
-contract ASTRNote is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit {
+contract nASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit {
     // @notice      storing individual user balances
     mapping (address => uint) public accountNoteBalance;
 
