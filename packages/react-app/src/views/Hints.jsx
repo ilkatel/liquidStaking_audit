@@ -251,18 +251,6 @@ export default function Hints({ yourLocalBalance, mainnetProvider, price, addres
         </span>
       </div>
 
-      <div style={{ marginTop: 32 }}>
-        <span style={{ marginRight: 8 }}>💬</span>
-        for support, join this
-        <span
-          className="highlight"
-          style={{ marginLeft: 4, /* backgroundColor: "#f9f9f9", */ padding: 4, borderRadius: 4, fontWeight: "bolder" }}
-        >
-          <a target="_blank" rel="noopener noreferrer" href="https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA">
-            Telegram Chat
-          </a>
-        </span>
-      </div>
       <div style={{ padding: 128 }}>
         🛠 Check out your browser&apos;s developer console for more... (inspect console) 🚀
       </div>

@@ -52,7 +52,7 @@ const { ethers } = require("ethers");
     (and then use the `useExternalContractLoader()` hook!)
 */
 
-const contractName = "ALGM"; // <-------- contract name
+const contractName = "nASTR" // <-------- contract name
 
 /// 📡 What chain are your contracts deployed to?
 const initialNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
@@ -261,7 +261,7 @@ function App(props) {
           {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
           <Home yourLocalBalance={yourLocalBalance} readContracts={readContracts} />
         </Route>
-        
+
         <Route exact path="/debug">
           {/*
                 🎛 this scaffolding is full of commonly used components
