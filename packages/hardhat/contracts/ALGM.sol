@@ -34,7 +34,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
  * - Role-based access control
  * - Snapshots (ability to store shnapshots of balances that can be retrieved later)
  */
-contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
+contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl, ERC20Snapshot {
     address public                     Owner;
 
     // @notice      contract roles
@@ -78,10 +78,10 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
         // !!!!!! DEV !!!!!!!!! <------------------------------------------------------
         // dev remix
         // owner 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4
-        /* address _incentive = 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2;
+        address _incentive = 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2;
         address _team = 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db;
         address _community = 0x78731D3Ca6b7E34aC0F824c42a7cC18A495cabaB;
-        address _reserve = 0x617F2E2fD72FD9D5503197092aC168c91465E7f2; */
+        address _reserve = 0x617F2E2fD72FD9D5503197092aC168c91465E7f2;
         // !!!!!! DEV !!!!!!!!! <------------------------------------------------------
 
         // store treasury addresses
@@ -109,12 +109,12 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
         require(transfer(fund.Reserve, ReserveDistrib * 10 ** decimals()) == true, "Reserve distribution failed!");
 
         // !!!!!! DEV HARDHAT !!!!!!!!! <------------------------------------------------------
-        /* _grantRole(DEFAULT_ADMIN_ROLE, 0xE2532766D03fd3796d826233924DE071AEb996d9);
-        Owner = 0xE2532766D03fd3796d826233924DE071AEb996d9; */
+        _grantRole(DEFAULT_ADMIN_ROLE, 0xE2532766D03fd3796d826233924DE071AEb996d9);
+        Owner = 0xE2532766D03fd3796d826233924DE071AEb996d9;
         // !!!!!! DEV HARDHAT !!!!!!!!! <------------------------------------------------------
     }
 
-    function snapshot() public onlyOwner {
+    function snapshot() public onlyRole(DEFAULT_ADMIN_ROLE) {
         _snapshot();
     }
 
@@ -131,6 +131,17 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl {
         override(ERC20, ERC20Votes)
     {
         super._afterTokenTransfer(from, to, amount);
+    }
+
+    // @param       checks if token is active
+    // @param       [address] from => address to transfer tokens from
+    // @param       [address] to => address to transfer tokens to
+    // @param       [uint256] amount => amount of tokens to transfer
+    function _beforeTokenTransfer(address from, address to, uint256 amount)
+        internal
+        override(ERC20, ERC20Snapshot)
+    {
+        super._beforeTokenTransfer(from, to, amount);
     }
 
     function _mint(address to, uint256 amount)

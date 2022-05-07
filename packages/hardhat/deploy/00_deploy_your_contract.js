@@ -4,7 +4,7 @@
 // yarn verify --constructor-args ALGMarguments.js CONTRACT_ADDRESS --network binanceTestnet
 
 // <----------------------------------------------- specify contract name
- const CONTRACT_NAME = "ALGM";
+const CONTRACT_NAME = "ALGM";
 //const CONTRACT_NAME = "nASTR";
 
 //const argsFile = "../contract-arguments/" + CONTRACT_NAME + "-args";
