@@ -66,6 +66,30 @@ module.exports = {
   // Follow the directions, and uncomment the network you wish to deploy to.
 
   networks: {
+    //Astar
+    shidenLocal: {
+      url: "http://localhost:9933",
+      chainId: 4369,
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
+    shibuyaTestnet: {
+      url: "https://rpc.shibuya.astar.network:8545/",
+      chainId: 81,
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
+    astar: {
+      url: "https://evm.astar.network",
+      chainId: 592,
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
+
+    // Local hardhat
     localhost: {
       url: "http://localhost:8545",
       /*
@@ -74,10 +98,11 @@ module.exports = {
 
       */
     },
+
+    // Binance
     binanceTestnet: {
       url: "https://data-seed-prebsc-1-s1.binance.org:8545",
       chainId: 97,
-      gasPrice: 20000000000,
       accounts: {
         mnemonic: mnemonic(),
       },
@@ -90,6 +115,8 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
+
+    // Ethereum
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/b35f94a90f6d41de8ec8e5d940d32121", // <---- YOUR INFURA ID! (or it won't work)
       //    url: "https://speedy-nodes-nyc.moralis.io/XXXXXXXXXXXXXXXXXXXXXXX/eth/rinkeby", // <---- YOUR MORALIS ID! (not limited to infura)
@@ -126,6 +153,8 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
+
+
     xdai: {
       url: "https://rpc.xdaichain.com/",
       gasPrice: 1000000000,
@@ -133,6 +162,7 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
+
     fantom: {
       url: "https://rpcapi.fantom.network",
       gasPrice: 1000000000,
@@ -147,6 +177,7 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
+
     polygon: {
       url: "https://polygon-rpc.com",
       // url: "https://speedy-nodes-nyc.moralis.io/XXXXXXXXXXXXXXXXXXXx/polygon/mainnet", // <---- YOUR MORALIS ID! (not limited to infura)
