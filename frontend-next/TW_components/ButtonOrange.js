@@ -1,10 +1,10 @@
-const ButtonOrange = (props) => {
+const ButtonOrange = ({ children, ...rest }) => {
   return (
     <button
-      {...props}
+      {...rest}
       className="pt-3 pb-3 px-6 text-black-2 bg-orange-1 rounded hover:bg-orange-2"
     >
-      {props.children}
+      {children}
     </button>
   );
 };
