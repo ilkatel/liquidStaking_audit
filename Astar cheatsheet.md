@@ -1,8 +1,15 @@
 # Astar ✨
-#blockchain #dev 
 
+- [[#Prep]]
+- [[#Setting up Local envo mac]]
+- [[#Metamask setup]]
+- [[#Local Contract deployment]]
+- [[#Astar over hardhat]]
+- [[#Astar Base — on-chain EVM Database]]
+- [[#EVM Precompiles]]
+- [[#Links]]
+- 
 - [Astar Portal](https://portal.astar.network/#/assets)
-
 
 
 ## Prep
@@ -125,7 +132,8 @@ yarn deploy --network shidenLocal
 - Deploy contract
 
 ```shell
-yarn deploy --network shibuyaTestnet
+yarn deploy --network shibuyaTestnet <------ Testnet
+yarn deploy --network astar			 <------ Mainnet
 ```
 
 - Find the contract at [Explorer]
