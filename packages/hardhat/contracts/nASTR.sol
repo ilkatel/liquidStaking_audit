@@ -50,9 +50,14 @@ contract nASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20P
     // @param       destroy DNT token
     // @param       [address] to => token holder to burn from
     // @param       [uint256] amount => amount of tokens to burn
-    function burnNote(address account, uint256 amount) public {
+    function burnNote(address account, uint256 amount) public onlyOwner {
         accountNoteBalance[account] -= amount;
         _burn(account, amount);
+    }
+
+    // @param       address to check balance of
+    function getNoteBalance(address _address) external view returns(uint256) {
+        return accountNoteBalance[_address];
     }
 
     // @param       create snapshot of balances
