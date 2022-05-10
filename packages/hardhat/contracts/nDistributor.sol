@@ -7,9 +7,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-
-import "./nASTRInterface.sol";
+import "../libs/openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/nASTRInterface.sol";
 
 /*
  * @notice ERC20 DNT token distributor contract
@@ -19,9 +18,25 @@ import "./nASTRInterface.sol";
  */
 contract nDistributor is Ownable {
 
+    // ------------------------------- USER MANAGMENT
+
+    // @notice                         describes DntAsset structure
+    // @dev                            dntInUtil => describes how many DNTs are attached to specific utility
+    // @dev                            dntLiquid => describes how many DNTs are liquid and available for imidiate use
+    struct                             DntAsset {
+        mapping (string => uint256)    dntInUtil;
+        uint256                        dntLiquid;
+    }
+
+    // @notice                         describes user structure
+    // @dev                            tracks specific DNT token
+    struct                             User {
+        mapping (string => DntAsset)   dnt;
+    }
+
     // ------------------------------- UTILITY MANAGMENT
 
-    // @notice                         defines utility (Algem offer\opportunity) struct
+    // @notice                         defidescribesnes utility (Algem offer\opportunity) struct
     struct                             Utility {
         string                         utilityName;
         bool                           isActive;
