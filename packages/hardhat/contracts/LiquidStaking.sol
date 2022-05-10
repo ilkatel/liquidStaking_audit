@@ -29,6 +29,7 @@ contract LiquidStaking is Ownable {
 	uint256 public minStake;
 	/// @notice		stores staking timeframes, not sure if it's the right way
 	uint256[] public stakingTerms;
+
 	
 	/// @notice		single stake data
 	struct Stake {
@@ -39,6 +40,10 @@ contract LiquidStaking is Ownable {
 	}
 	/// @notice		store stakes by IDs
 	mapping(uint256 => Stake) public stakes;
+
+	/// @notice events on calling stake/reedem, indexed by sender
+	event Staked(address indexed from, uint256 amount, uint256 timeframe);
+	event Reedemed(address indexed to, uint256 amount);
 
 	/// @param		[address] _token => nASTR token address
 	/// @param		[uint256] _min => minimum ASTR amount to stake
@@ -67,6 +72,8 @@ contract LiquidStaking is Ownable {
 
 		/// @dev	I guess distributor has to handle it? 
 		nASTR(nASTRtoken).mintNote(msg.sender, msg.value);
+
+		emit Staked(msg.sender, msg.value, stakingTerms[termN]);
 	}
 
 	/// @notice		claim rewards
@@ -94,5 +101,7 @@ contract LiquidStaking is Ownable {
 
 		/// @notice	finally send ASTR to user
 		payable(msg.sender).call{value: amount};
+
+		emit Reedemed(msg.sender, amount);
 	}
 }
