@@ -9,12 +9,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "../libs/@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../libs/@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "../libs/@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
+import "../libs/@openzeppelin/contracts/access/Ownable.sol";
+import "../libs/@openzeppelin/contracts/security/Pausable.sol";
+import "../libs/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 
 /*
  * @notice nALGM ERC20 DNT token contract
