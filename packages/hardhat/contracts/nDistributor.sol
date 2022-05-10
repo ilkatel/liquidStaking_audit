@@ -3,6 +3,11 @@
 // - Token transfer function (should keep track of user utils)
 // - User structure — should describe the "vault" of the user — keep track of his assets and utils
 // - Make universal DNT interface
+// - Make sure ownership over DNT tokens isn't lost
+// - Calls from contract to nASTR fail due to ownership issues
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
@@ -33,6 +38,7 @@ contract nDistributor is Ownable {
     struct                             User {
         mapping (string => DntAsset)   dnt;
     }
+    mapping (address => User)          users;
 
     // ------------------------------- UTILITY MANAGMENT
 
@@ -54,6 +60,7 @@ contract nDistributor is Ownable {
     address                             nASTRInterfaceAddress = 0xd9145CCE52D386f254917e481eB44e9943F39138;
     nASTRInterface                      nASTRcontract = nASTRInterface(nASTRInterfaceAddress);
 
+    // -------------------------------------------------------------------------------------------------------
     // ------------------------------- FUNCTIONS
 
     // @notice                         initializes utilityDB
@@ -64,7 +71,7 @@ contract nDistributor is Ownable {
     }
 
     // @notice                         returns the list of all utilities
-    function                           returnUtilities() external view returns(string[] memory) {
+    function                           listUtilities() external view returns(string[] memory) {
         return utilities;
     }
 
@@ -88,7 +95,10 @@ contract nDistributor is Ownable {
     // @notice                         issues new tokens
     // @param                          [address] _to => token recepient
     // @param                          [uint256] _amount => amount of tokens to mint
-    function                           issueDNT(address _to, uint256 _amount) public onlyOwner {
+    function                           issueDNT(address _to, uint256 _amount, string memory _utility) public onlyOwner {
+        uint256                        id;
+
+        require((id = utilityId[_utility]) > 0, "Non-existing utility!");
         nASTRcontract.mintNote(_to, _amount);
     }
 
