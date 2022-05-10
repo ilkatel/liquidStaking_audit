@@ -83,5 +83,5 @@ Algem project development log.docx
 
 
 #frontend-next
-frontend-next/node_modules
-frontend-next/.next
+packages/frontend-next/node_modules
+packages/frontend-next/.next
