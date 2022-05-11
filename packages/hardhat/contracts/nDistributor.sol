@@ -1,18 +1,16 @@
 //TODO:
 //
 // - Token transfer function (should keep track of user utils)
-// - User structure — should describe the "vault" of the user — keep track of his assets and utils
+// - User structure — should describe the "vault" of the user — keep track of his assets and utils [+]
 // - Make universal DNT interface
 // - Make sure ownership over DNT tokens isn't lost
-// - Calls from contract to nASTR fail due to ownership issues
+//
+// - Write getter functions to read info about user vaults (users mapping)
 
 // SET-UP:
 // 1. Deploy nDistributor
 // 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
 // 3. Call "setAstrInterface" in nDistributor with nASTR contract address
-
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
@@ -109,18 +107,35 @@ contract nDistributor is Ownable {
     // @notice                         issues new tokens
     // @param                          [address] _to => token recepient
     // @param                          [uint256] _amount => amount of tokens to mint
-    function                           issueDNT(address _to, uint256 _amount, string memory _utility) public onlyOwner {
+    // @param                          [string] _utility => minted dnt utility
+    // @param                          [string] _dnt => minted dnt
+    function                           issueDNT(address _to, uint256 _amount, string memory _utility, string memory _dnt) public {
         uint256                        id;
+        address                        user = msg.sender;
 
         require(nASTRContractAddress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
+        users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
+        users[user].dnt[_dnt].dntLiquid += _amount;
         nASTRcontract.mintNote(_to, _amount);
+
     }
 
     // @notice                         removes tokens from circulation
     // @param                          [address] _account => address to burn from
     // @param                          [uint256] _amount => amount of tokens to burn
-    function                           removeDNT(address _account, uint256 _amount) public onlyOwner {
+    // @param                          [string] _utility => minted dnt utility
+    // @param                          [string] _dnt => minted dnt
+    function                           removeDNT(address _account, uint256 _amount, string memory _utility, string memory _dnt) public {
+        uint256                        id;
+        address                        user = msg.sender;
+
+        require(nASTRContractAddress != address(0x00), "Interface not set!");
+        require((id = utilityId[_utility]) > 0, "Non-existing utility!");
+        require((users[user].dnt[_dnt].dntInUtil[_utility] - _amount) > 0, "Not enough DNT in utility!");
+        require((users[user].dnt[_dnt].dntLiquid - _amount) > 0, "Not enough liquid DNT!");
+        users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
+        users[user].dnt[_dnt].dntLiquid += _amount;
         nASTRcontract.burnNote(_account, _amount);
     }
 
