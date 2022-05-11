@@ -39,7 +39,7 @@ contract ALGM is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl, E
 
     // @notice      contract roles
     bytes32 public constant            INCENTIVE_FUND = keccak256("INCENTIVE_FUND");
-    bytes32 public constant            TEAM_FUND = keccak256("TEAM_FUND");
+    bytes32 public constant            TEAM_FUND = keccak256("INCENTIVE_FUND");
     bytes32 public constant            COMMUNITY_FUND = keccak256("COMMUNITY_FUND");
     bytes32 public constant            RESERVE_FUND = keccak256("RESERVE_FUND");
 
