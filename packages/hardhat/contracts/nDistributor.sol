@@ -6,6 +6,11 @@
 // - Make sure ownership over DNT tokens isn't lost
 // - Calls from contract to nASTR fail due to ownership issues
 
+// SET-UP:
+// 1. Deploy nDistributor
+// 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
+// 3. Call "setAstrInterface" in nDistributor with nASTR contract address
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
@@ -34,10 +39,11 @@ contract nDistributor is Ownable {
     }
 
     // @notice                         describes user structure
-    // @dev                            tracks specific DNT token
+    // @dev                            dnt => tracks specific DNT token
     struct                             User {
         mapping (string => DntAsset)   dnt;
     }
+    // @dev                            users => describes the user and his portfolio
     mapping (address => User)          users;
 
     // ------------------------------- UTILITY MANAGMENT
@@ -57,8 +63,8 @@ contract nDistributor is Ownable {
     // -------------------------------- DNT TOKENS MANAGMENT
 
     // @notice                          DNT token contract interface
-    address                             nASTRInterfaceAddress = 0xd9145CCE52D386f254917e481eB44e9943F39138;
-    nASTRInterface                      nASTRcontract = nASTRInterface(nASTRInterfaceAddress);
+    address public                      nASTRContractAddress;
+    nASTRInterface                      nASTRcontract;
 
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- FUNCTIONS
@@ -68,6 +74,14 @@ contract nDistributor is Ownable {
     //                                 so we initialize it to avoid confusion
     constructor() {
         utilityDB.push(Utility("null", false));
+        nASTRContractAddress = address(0x00);
+    }
+
+    // @notice                          allows to specify nASTR token contract address
+    // @param                           [address] _contract => nASTR contract address
+    function                            setAstrInterface(address _contract) external onlyOwner {
+        nASTRContractAddress = _contract;
+        nASTRcontract = nASTRInterface(nASTRContractAddress);
     }
 
     // @notice                         returns the list of all utilities
@@ -98,6 +112,7 @@ contract nDistributor is Ownable {
     function                           issueDNT(address _to, uint256 _amount, string memory _utility) public onlyOwner {
         uint256                        id;
 
+        require(nASTRContractAddress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
         nASTRcontract.mintNote(_to, _amount);
     }
