@@ -79,9 +79,10 @@ Algem project development log.docx
 *.docx
 *.doc
 
-
-
-
 #frontend-next
 packages/frontend-next/node_modules
 packages/frontend-next/.next
+
+#docs
+docs/diagrams/ai
+*.ai
