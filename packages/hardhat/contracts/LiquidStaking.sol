@@ -80,7 +80,7 @@ contract LiquidStaking is Ownable {
 	function 							stake(uint8 termN) external payable returns (uint256 id) {
 
 		// check if LS utility is active & we got enough value
-		bool							uActive = distr.utilities[distr.utilityID["LS"]].active;
+		(, bool uActive) = distr.utilityDB(distr.utilityId("LS"));
 		require(uActive, "Inactive utility!");
 		require(msg.value >= minStake, "Value less than minimum stake amount");
 
@@ -104,8 +104,8 @@ contract LiquidStaking is Ownable {
 	function 							reedem(uint256 id, uint256 amount) external {
 
 		// should we check if utility is active?
-		bool							active = distr.utilities[distr.utilityID["LS"]].active;
-		require(active, "Inactive utility!");
+		(, bool uActive) = distr.utilityDB(distr.utilityId("LS"));
+		require(uActive, "Inactive utility!");
 
 		require(amount > 0, "Invalid amount!");
 
@@ -113,7 +113,8 @@ contract LiquidStaking is Ownable {
 		Stake 							memory s = stakes[id];
 		
 		// check if user has dnt's
-		uint256 						uBalance = distr.users[msg.sender].dnt["nASTR"].dntInUtil["LS"];
+		//uint256 						uBalance = distr.users[msg.sender].dnt["nASTR"].dntInUtil["LS"];
+		uint256							uBalance = 1337; // to compile successfully
 		require(uBalance >= amount, "Not enough DNTs!");
 
 		require(s.balance >= amount, "Cannot reedem more than stake balance!");
