@@ -74,6 +74,7 @@
     "husky": "^7.0.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.6.0"
+    "@openzeppelin/contracts": "^4.6.0",
+    "@poanet/solidity-flattener": "^3.0.7"
   }
 }

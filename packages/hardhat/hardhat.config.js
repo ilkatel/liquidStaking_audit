@@ -319,19 +319,10 @@ module.exports = {
           },
         },
       },
-      {
-        version: "0.6.7",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
     ],
   },
   ovm: {
-    solcVersion: "0.7.6",
+    solcVersion: "0.8.4",
   },
   namedAccounts: {
     deployer: {
