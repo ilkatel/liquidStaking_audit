@@ -23,7 +23,7 @@ contract LiquidStaking is Ownable {
     // -------------------------------- DISTRIBUTOR
 	// @notice							distributor address etc.
 	address public						distrAddr;
-	nDistributor						distr;
+	NDistributor						distr;
 
 
     // -------------------------------- STAKING SETTINGS
@@ -57,7 +57,7 @@ contract LiquidStaking is Ownable {
 	// @param							[uint256] _min => minimum ASTR amount to stake
 	constructor(address _dAddr, uint256 _min){
 		distrAddr = _dAddr;
-		distr = nDistributor(distrAddr);
+		distr = NDistributor(distrAddr);
 		minStake = _min;
 	}
 
