@@ -15,8 +15,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libs/openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/nASTRInterface.sol";
+import "../libs/@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/DNTInterface.sol";
 
 /*
  * @notice ERC20 DNT token distributor contract
@@ -61,8 +61,8 @@ contract nDistributor is Ownable {
     // -------------------------------- DNT TOKENS MANAGMENT
 
     // @notice                          DNT token contract interface
-    address public                      nASTRContractAddress;
-    nASTRInterface                      nASTRcontract;
+    address public                      DNTContractAdress;
+    DNTInterface                        DNTContract;
 
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- FUNCTIONS
@@ -72,14 +72,14 @@ contract nDistributor is Ownable {
     //                                 so we initialize it to avoid confusion
     constructor() {
         utilityDB.push(Utility("null", false));
-        nASTRContractAddress = address(0x00);
+        DNTContractAdress = address(0x00);
     }
 
     // @notice                          allows to specify nASTR token contract address
     // @param                           [address] _contract => nASTR contract address
     function                            setAstrInterface(address _contract) external onlyOwner {
-        nASTRContractAddress = _contract;
-        nASTRcontract = nASTRInterface(nASTRContractAddress);
+        DNTContractAdress = _contract;
+        DNTContract = DNTInterface(DNTContractAdress);
     }
 
     // @notice                         returns the list of all utilities
@@ -113,11 +113,11 @@ contract nDistributor is Ownable {
         uint256                        id;
         address                        user = msg.sender;
 
-        require(nASTRContractAddress != address(0x00), "Interface not set!");
+        require(DNTContractAdress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
         users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[user].dnt[_dnt].dntLiquid += _amount;
-        nASTRcontract.mintNote(_to, _amount);
+        DNTContract.mintNote(_to, _amount);
 
     }
 
@@ -130,13 +130,13 @@ contract nDistributor is Ownable {
         uint256                        id;
         address                        user = msg.sender;
 
-        require(nASTRContractAddress != address(0x00), "Interface not set!");
+        require(DNTContractAdress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
         require((users[user].dnt[_dnt].dntInUtil[_utility] - _amount) > 0, "Not enough DNT in utility!");
         require((users[user].dnt[_dnt].dntLiquid - _amount) > 0, "Not enough liquid DNT!");
         users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[user].dnt[_dnt].dntLiquid += _amount;
-        nASTRcontract.burnNote(_account, _amount);
+        DNTContract.burnNote(_account, _amount);
     }
 
     // transfer tokens (should keep track of util)
