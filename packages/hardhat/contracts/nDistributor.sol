@@ -1,19 +1,22 @@
 //TODO:
 //
 // - Token transfer function (should keep track of user utils)
-// - User structure — should describe the "vault" of the user — keep track of his assets and utils
+// - User structure — should describe the "vault" of the user — keep track of his assets and utils [+]
 // - Make universal DNT interface
 // - Make sure ownership over DNT tokens isn't lost
-// - Calls from contract to nASTR fail due to ownership issues
+//
+// - Write getter functions to read info about user vaults (users mapping)
+
+// SET-UP:
+// 1. Deploy nDistributor
+// 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
+// 3. Call "setAstrInterface" in nDistributor with nASTR contract address
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
-
-import "../libs/openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/nASTRInterface.sol";
+import "../libs/@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/DNTInterface.sol";
 
 /*
  * @notice ERC20 DNT token distributor contract
@@ -21,7 +24,7 @@ import "../interfaces/nASTRInterface.sol";
  * Features:
  * - Ownable
  */
-contract nDistributor is Ownable {
+contract NDistributor is Ownable {
 
     // ------------------------------- USER MANAGMENT
 
@@ -34,10 +37,11 @@ contract nDistributor is Ownable {
     }
 
     // @notice                         describes user structure
-    // @dev                            tracks specific DNT token
+    // @dev                            dnt => tracks specific DNT token
     struct                             User {
         mapping (string => DntAsset)   dnt;
     }
+    // @dev                            users => describes the user and his portfolio
     mapping (address => User)          users;
 
     // ------------------------------- UTILITY MANAGMENT
@@ -57,8 +61,8 @@ contract nDistributor is Ownable {
     // -------------------------------- DNT TOKENS MANAGMENT
 
     // @notice                          DNT token contract interface
-    address                             nASTRInterfaceAddress = 0xd9145CCE52D386f254917e481eB44e9943F39138;
-    nASTRInterface                      nASTRcontract = nASTRInterface(nASTRInterfaceAddress);
+    address public                      DNTContractAdress;
+    DNTInterface                        DNTContract;
 
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- FUNCTIONS
@@ -68,6 +72,14 @@ contract nDistributor is Ownable {
     //                                 so we initialize it to avoid confusion
     constructor() {
         utilityDB.push(Utility("null", false));
+        DNTContractAdress = address(0x00);
+    }
+
+    // @notice                          allows to specify nASTR token contract address
+    // @param                           [address] _contract => nASTR contract address
+    function                            setAstrInterface(address _contract) external onlyOwner {
+        DNTContractAdress = _contract;
+        DNTContract = DNTInterface(DNTContractAdress);
     }
 
     // @notice                         returns the list of all utilities
@@ -95,18 +107,36 @@ contract nDistributor is Ownable {
     // @notice                         issues new tokens
     // @param                          [address] _to => token recepient
     // @param                          [uint256] _amount => amount of tokens to mint
-    function                           issueDNT(address _to, uint256 _amount, string memory _utility) public onlyOwner {
+    // @param                          [string] _utility => minted dnt utility
+    // @param                          [string] _dnt => minted dnt
+    function                           issueDNT(address _to, uint256 _amount, string memory _utility, string memory _dnt) public {
         uint256                        id;
+        address                        user = msg.sender;
 
+        require(DNTContractAdress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
-        nASTRcontract.mintNote(_to, _amount);
+        users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
+        users[user].dnt[_dnt].dntLiquid += _amount;
+        DNTContract.mintNote(_to, _amount);
+
     }
 
     // @notice                         removes tokens from circulation
     // @param                          [address] _account => address to burn from
     // @param                          [uint256] _amount => amount of tokens to burn
-    function                           removeDNT(address _account, uint256 _amount) public onlyOwner {
-        nASTRcontract.burnNote(_account, _amount);
+    // @param                          [string] _utility => minted dnt utility
+    // @param                          [string] _dnt => minted dnt
+    function                           removeDNT(address _account, uint256 _amount, string memory _utility, string memory _dnt) public {
+        uint256                        id;
+        address                        user = msg.sender;
+
+        require(DNTContractAdress != address(0x00), "Interface not set!");
+        require((id = utilityId[_utility]) > 0, "Non-existing utility!");
+        require((users[user].dnt[_dnt].dntInUtil[_utility] - _amount) > 0, "Not enough DNT in utility!");
+        require((users[user].dnt[_dnt].dntLiquid - _amount) > 0, "Not enough liquid DNT!");
+        users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
+        users[user].dnt[_dnt].dntLiquid += _amount;
+        DNTContract.burnNote(_account, _amount);
     }
 
     // transfer tokens (should keep track of util)
