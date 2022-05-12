@@ -75,7 +75,8 @@ module.exports = {
       },
     },
     shibuyaTestnet: {
-      url: "https://rpc.shibuya.astar.network:8545/",
+      //url: "https://rpc.shibuya.astar.network:8545/",
+      url: "https://shibuya.blastapi.io/9e287788-24da-4698-bccb-448fd3ebafce",
       chainId: 81,
       accounts: {
         mnemonic: mnemonic(),

@@ -1,5 +1,5 @@
 // TODO:
-// - create DNT distributor
+// - create DNT distributor [+]
 //
 // - add events for the platform
 //
