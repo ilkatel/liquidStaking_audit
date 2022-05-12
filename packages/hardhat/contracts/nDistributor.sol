@@ -24,7 +24,7 @@ import "./interfaces/DNTInterface.sol";
  * Features:
  * - Ownable
  */
-contract nDistributor is Ownable {
+contract NDistributor is Ownable {
 
     // ------------------------------- USER MANAGMENT
 
