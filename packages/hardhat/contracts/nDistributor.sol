@@ -6,6 +6,10 @@
 // - Make sure ownership over DNT tokens isn't lost
 //
 // - Write getter functions to read info about user vaults (users mapping)
+// - Get user DNTs
+// - Get user utils
+// - Get user DNT in util
+// - Get user liquid DNT
 
 // SET-UP:
 // 1. Deploy nDistributor
@@ -33,6 +37,7 @@ contract NDistributor is Ownable {
     // @dev                            dntLiquid => describes how many DNTs are liquid and available for imidiate use
     struct                             DntAsset {
         mapping (string => uint256)    dntInUtil;
+        string[]                       userUtils;
         uint256                        dntLiquid;
     }
 
@@ -40,9 +45,15 @@ contract NDistributor is Ownable {
     // @dev                            dnt => tracks specific DNT token
     struct                             User {
         mapping (string => DntAsset)   dnt;
+        string[]                       userDnts;
     }
     // @dev                            users => describes the user and his portfolio
     mapping (address => User)          users;
+
+    // @notice                          get info about user DNTs --------------- MOVE THIS DOWN THE CODE
+    // function                            getUserDnts(address _user) public returns (User) {
+    //     return
+    // }
 
     // ------------------------------- UTILITY MANAGMENT
 
@@ -115,10 +126,33 @@ contract NDistributor is Ownable {
 
         require(DNTContractAdress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
+
+        users[user].userDnts = _addDntToUser(user, _dnt);
+
         users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[user].dnt[_dnt].dntLiquid += _amount;
         DNTContract.mintNote(_to, _amount);
 
+    }
+
+    function                           _addDntToUser(address _user, string memory _dnt) internal returns(string[] memory) { // <------------- WIP
+        uint                           l;
+        uint                           i = 0;
+        string[] memory                userDnts;
+
+        l = users[_user].userDnts.length;
+        userDnts = users[_user].userDnts;
+        for (i; i < l; i++) {
+            if (keccak256(abi.encodePacked(userDnts[i])) == keccak256(abi.encodePacked(_dnt))) {
+                return (userDnts);
+            }
+        }
+        userDnts[i] = _dnt;
+        return (userDnts);
+    }
+
+    function                           listUserDnts(address _user) public view returns(string[] memory) {
+        return (users[_user].userDnts);
     }
 
     // @notice                         removes tokens from circulation
