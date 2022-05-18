@@ -1,7 +1,8 @@
 // TODO:
 // - rewards calculation
-// - proper staking timeframes management
-// - proper stake owner tracking
+// - proper staking timeframes management [+?]
+// - DNT 
+// - proper stake owner tracking [ ] -- need nDistributor transfer implementation?
 
 
 //SPDX-License-Identifier: MIT
@@ -9,6 +10,7 @@
 pragma solidity ^0.8.4;
 
 import "./nDistributor.sol";
+import "./nASTR.sol";
 import "../libs/@openzeppelin/contracts/utils/Counters.sol";
 import "../libs/@openzeppelin/contracts/access/Ownable.sol";
 
@@ -25,6 +27,9 @@ contract LiquidStaking is Ownable {
 	address public						distrAddr;
 	NDistributor						distr;
 
+	address public						DNTAddr;
+	NASTR						DNT;
+
 
     // -------------------------------- STAKING SETTINGS
 	// @notice							minimum staking amount
@@ -37,8 +42,12 @@ contract LiquidStaking is Ownable {
 	Counters.Counter					stakeIDs;
 	// @notice							single stake data
 	struct								Stake {
-		uint256							balance;
+		uint256							totalBalance;
+		uint256							liquidBalance;
+		uint256							rate;
+		uint256							claimable;
 		uint256							startDate;
+		uint256							lastUpdate;
 		uint256							finDate;
 	}
 	// @notice							store stakes by IDs
@@ -49,16 +58,28 @@ contract LiquidStaking is Ownable {
 	// @notice events on calling stake/reedem, indexed by sender
 	event Staked(address indexed from, uint256 amount, uint256 timeframe);
 	event Reedemed(address indexed to, uint256 amount);
+	event Claimed(address indexed to, uint256 indexed stakeID, uint256 amount);
 
 
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- FUNCTIONS
 	// @param							[address] _dAddr => distributor address
 	// @param							[uint256] _min => minimum ASTR amount to stake
-	constructor(address _dAddr, uint256 _min){
-		distrAddr = _dAddr;
+	constructor(address _distrAddr, address _DNTaddr, uint256 _min){
+		distrAddr = _distrAddr;
 		distr = NDistributor(distrAddr);
+		DNTAddr = _DNTaddr;
+		DNT = NASTR(DNTAddr);
 		minStake = _min;
+	}
+
+	modifier updateStake(uint256 id) {
+		Stake memory s = stakes[id];
+		if (block.timestamp - s.lastUpdate > 3600 * 24) {
+			stakes[id].lastUpdate = block.timestamp;
+			stakes[id].claimable += s.rate;
+		} 
+		_;
 	}
 
 	// @notice							add new staking timeframe
@@ -88,13 +109,17 @@ contract LiquidStaking is Ownable {
 		id = stakeIDs.current();
 		stakeIDs.increment();
 		stakes[id] = Stake({
-			balance: msg.value,
+			totalBalance: msg.value,
+			liquidBalance: 0,
+			rate: msg.value / 2 / stakingTerms[termN] / 3600 / 24,
+			claimable: msg.value / 2,
 			startDate: block.timestamp,
+			lastUpdate: block.timestamp,
 			finDate: block.timestamp + stakingTerms[termN]
 		});
 
 		// TODO: change minted amount to part of msg.value
-		distr.issueDNT(msg.sender, msg.value, "LS", "nASTR");
+		//distr.issueDNT(msg.sender, msg.value, "LS", "nASTR");
 		emit Staked(msg.sender, msg.value, stakingTerms[termN]);
 	}
 
@@ -114,14 +139,14 @@ contract LiquidStaking is Ownable {
 		
 		// check if user has dnt's
 		//uint256 						uBalance = distr.users[msg.sender].dnt["nASTR"].dntInUtil["LS"];
-		uint256							uBalance = 1337; // to compile successfully
+		uint256							uBalance = DNT.balanceOf(msg.sender);
 		require(uBalance >= amount, "Not enough DNTs!");
 
-		require(s.balance >= amount, "Cannot reedem more than stake balance!");
+		require(s.totalBalance >= amount, "Cannot reedem more than stake balance!");
 		require(s.finDate < block.timestamp, "Cannot do it yet!");
 
 		// update Stake data
-		stakes[id].balance -= amount;
+		stakes[id].totalBalance -= amount;
 
 		// burn requested DNT amount from user
 		distr.removeDNT(msg.sender, amount, "LS", "nASTR");
@@ -132,7 +157,15 @@ contract LiquidStaking is Ownable {
 	}
 
 	/// @notice		claim rewards
-	function claim() external {
+	function claimDNT(uint256 id, uint256 amount) external updateStake(id) {
+		Stake memory s = stakes[id];
+		require(s.claimable >= amount, "Invalid amount!");
 
+		stakes[id].claimable -= amount;
+		stakes[id].liquidBalance += amount;
+
+		distr.issueDNT(msg.sender, amount, "LS", "nASTR");
+		// emit claimed
+		emit Claimed(msg.sender, id, amount);
 	}
 }
