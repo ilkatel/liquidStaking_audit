@@ -11,7 +11,7 @@
 //
 // - Add DNT balance getter function for user from DNT contract [+]
 // - DNT removal (burn) logic [+]
-// - Token transfer logic (should keep track of user utils)
+// - Token transfer logic (should keep track of user utils) // <---------- test transferDnt function
 //
 // - Make universal DNT interface
 //     - setInterface
@@ -235,7 +235,7 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to mint
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           issueDNT(address _to, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner {
+    function                           issueDnt(address _to, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner { // <-------- DNT contract selection needed
         uint256                        id;
 
         require(DNTContractAdress != address(0x00), "Interface not set!");
@@ -294,7 +294,7 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to burn
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           removeDNT(address _account, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner {
+    function                           removeDnt(address _account, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner { // <-------- DNT contract selection needed
         uint256                        id;
 
         require(DNTContractAdress != address(0x00), "Interface not set!");
@@ -353,7 +353,22 @@ contract NDistributor is Ownable {
         return;
     }
 
-    // transfer tokens (should keep track of util)
+    // @notice                         transfers tokens between users
+    // @param                          [address] _from => token sender
+    // @param                          [address] _to => token recepient
+    // @param                          [uint256] _amount => amount of tokens to send
+    // @param                          [string] _utility => transfered dnt utility
+    // @param                          [string] _dnt => transfered dnt
+    function                           transferDnt(address _from,
+                                                   address _to,
+                                                   uint256 _amount,
+                                                   string memory _utility,
+                                                   string memory _dnt) public onlyOwner {
+        require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
+
+        removeDnt(_from, _amount, _utility, _dnt);
+        issueDnt(_to, _amount, _utility, _dnt);
+    }
 
 
 
