@@ -1,17 +1,21 @@
 //TODO:
 //
-// - Token transfer function (should keep track of user utils)
 // - User structure — should describe the "vault" of the user — keep track of his assets and utils [+]
-// - Make universal DNT interface
-// - Make sure ownership over DNT tokens isn't lost
 //
-// - Write getter functions to read info about user vaults (users mapping)
+// - Write getter functions to read info about user vaults (users mapping) [+]
 // - Get user DNTs [+]
 // - Get user utils [+]
-// - Get user DNT in util
-// - Get user liquid DNT
+// - Get user DNT in util [+]
+// - Get user liquid DNT [+]
 //
-// - Add DNT balance getter function for user
+// - Add DNT balance getter function for user from DNT contract
+// - DNT removal (burn) logic
+// - Token transfer logic (should keep track of user utils)
+//
+// - Make universal DNT interface
+// - Make sure ownership over DNT tokens isn't lost
+// - Add proxy contract for managing access to DNT contracts
+
 
 // SET-UP:
 // 1. Deploy nDistributor
@@ -183,6 +187,21 @@ contract NDistributor is Ownable {
         return (users[_user].userUtilities);
     }
 
+    // @notice                         returns ammount of liquid DNT toknes in user's possesion
+    // @param                          [address] _user => user address
+    // @param                          [string] _dnt => DNT token name
+    function                           getUserLiquidDnt(address _user, string memory _dnt) public view returns(uint256) {
+        return (users[_user].dnt[_dnt].dntLiquid);
+    }
+
+    // @notice                         returns ammount of DNT toknes of user in utility
+    // @param                          [address] _user => user address
+    // @param                          [string] _util => utility name
+    // @param                          [string] _dnt => DNT token name
+    function                           getUserDntInUtil(address _user, string memory _util, string memory _dnt) public view returns(uint256) {
+        return (users[_user].dnt[_dnt].dntInUtil[_util]);
+    }
+
 
 
 
@@ -196,7 +215,7 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to mint
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           issueDNT(address _to, uint256 _amount, string memory _utility, string memory _dnt) public {
+    function                           issueDNT(address _to, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner {
         uint256                        id;
         address                        user = msg.sender;
 
@@ -210,13 +229,12 @@ contract NDistributor is Ownable {
         users[user].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[user].dnt[_dnt].dntLiquid += _amount;
         DNTContract.mintNote(_to, _amount);
-
     }
 
     // @notice                         adds dnt string to user array of dnts for tracking which assets are in possession
     // @param                          [string] _dnt => name of the dnt token
     // @param                          [string[] ] localUserDnts => array of user's dnts
-    function                           _addDntToUser(string memory _dnt, string[] storage localUserDnts) internal {
+    function                           _addDntToUser(string memory _dnt, string[] storage localUserDnts) internal onlyOwner {
         uint256                        id;
         uint                           l;
         uint                           i = 0;
@@ -237,7 +255,7 @@ contract NDistributor is Ownable {
     // @notice                         adds utility string to user array of utilities for tracking which assets are in possession
     // @param                          [string] _utility => name of the utility token
     // @param                          [string[] ] localUserUtilities => array of user's utilities
-    function                           _addUtilityToUser(string memory _utility, string[] storage localUserUtilities) internal {
+    function                           _addUtilityToUser(string memory _utility, string[] storage localUserUtilities) internal onlyOwner {
         uint                           l;
         uint                           i = 0;
 
@@ -256,7 +274,7 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to burn
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           removeDNT(address _account, uint256 _amount, string memory _utility, string memory _dnt) public { // <--------------------- WIP ------------ manage DNT removal
+    function                           removeDNT(address _account, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner { // <--------------------- WIP ------------ manage DNT removal
         uint256                        id;
         address                        user = msg.sender;
 
