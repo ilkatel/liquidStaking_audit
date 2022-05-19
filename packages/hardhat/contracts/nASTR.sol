@@ -30,8 +30,6 @@ import "../libs/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit
  * - Snapshots (ability to store shnapshots of balances that can be retrieved later)
  */
 contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit {
-    // @notice      storing individual user balances
-    mapping (address => uint) public accountNoteBalance;
 
     // @notice      contract constructor
     // @param       [address] _distributor => DNT distributor contract address (will become the owner)
@@ -43,7 +41,6 @@ contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20P
     // @param       [address] to => token reciever
     // @param       [uint256] amount => amount of tokens to issue
     function mintNote(address to, uint256 amount) public onlyOwner {
-        accountNoteBalance[to] += amount;
         _mint(to, amount);
     }
 
@@ -51,13 +48,7 @@ contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20P
     // @param       [address] to => token holder to burn from
     // @param       [uint256] amount => amount of tokens to burn
     function burnNote(address account, uint256 amount) public onlyOwner {
-        accountNoteBalance[account] -= amount;
         _burn(account, amount);
-    }
-
-    // @param       address to check balance of
-    function getNoteBalance(address _address) external view returns(uint256) {
-        return accountNoteBalance[_address];
     }
 
     // @param       create snapshot of balances

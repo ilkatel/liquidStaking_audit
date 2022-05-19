@@ -8,11 +8,19 @@
 // - Get user DNT in util [+]
 // - Get user liquid DNT [+]
 //
-// - Add DNT balance getter function for user from DNT contract
+// - Add DNT balance getter function for user from DNT contract [+]
 // - DNT removal (burn) logic
 // - Token transfer logic (should keep track of user utils)
 //
 // - Make universal DNT interface
+//     - setInterface
+//     - mint
+//     - burn
+//     - balance
+//     - transfer
+//
+// - Add the rest of the DNT token functions (pause, snapshot, etc) to interface
+// - Add those functions to distributor
 // - Make sure ownership over DNT tokens isn't lost
 // - Add proxy contract for managing access to DNT contracts
 
@@ -26,7 +34,8 @@
 pragma solidity ^0.8.4;
 
 import "../libs/@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/DNTInterface.sol";
+import "./interfaces/IDNT.sol";
+
 
 /*
  * @notice ERC20 DNT token distributor contract
@@ -110,7 +119,7 @@ contract NDistributor is Ownable {
 
     // @notice                          DNT token contract interface
     address public                      DNTContractAdress;
-    DNTInterface                        DNTContract;
+    IDNT                                DNTContract;
 
 
 
@@ -200,6 +209,15 @@ contract NDistributor is Ownable {
     // @param                          [string] _dnt => DNT token name
     function                           getUserDntInUtil(address _user, string memory _util, string memory _dnt) public view returns(uint256) {
         return (users[_user].dnt[_dnt].dntInUtil[_util]);
+    }
+
+    // @notice                         returns user's DNT balance
+    // @param                          [address] _user => user address
+    // @param                          [string] _dnt => DNT token name
+    function                           getUserDntBalance(address _user, string memory _dnt) public returns(uint256) {
+        require(DNTContractAdress != address(0x00), "Interface not set!");
+
+        return (DNTContract.balanceOf(_user));
     }
 
 
@@ -305,7 +323,7 @@ contract NDistributor is Ownable {
     // @param                           [address] _contract => nASTR contract address
     function                            setAstrInterface(address _contract) external onlyOwner {
         DNTContractAdress = _contract;
-        DNTContract = DNTInterface(DNTContractAdress);
+        DNTContract = IDNT(DNTContractAdress);
     }
 
     // @notice                          allows to transfer ownership of the DNT contract
