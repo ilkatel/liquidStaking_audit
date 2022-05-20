@@ -11,7 +11,8 @@
 //
 // - Add DNT balance getter function for user from DNT contract [+]
 // - DNT removal (burn) logic [+]
-// - Token transfer logic (should keep track of user utils) // <---------- test transferDnt function
+// - Token transfer logic (should keep track of user utils) [+]
+// - Implement NULL util logic
 //
 // - Make universal DNT interface
 //     - setInterface
@@ -135,6 +136,9 @@ contract NDistributor is Ownable {
     // @notice                         initializes utilityDB & dntDB
     // @dev                            first element in mapping & non-existing entry both return 0
     //                                 so we initialize it to avoid confusion
+    // @dev                            "null" utility also means tokens not connected to utility
+    //                                 these could be used in any utility
+    //                                 for example, after token trasfer, reciever will get "null" utility
     constructor() {
         utilityDB.push(Utility("null", false));
         dntDB.push(Dnt("null", false));
@@ -367,7 +371,7 @@ contract NDistributor is Ownable {
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
 
         removeDnt(_from, _amount, _utility, _dnt);
-        issueDnt(_to, _amount, _utility, _dnt);
+        issueDnt(_to, _amount, _utility, "null");
     }
 
 
