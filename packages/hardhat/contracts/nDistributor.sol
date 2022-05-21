@@ -13,6 +13,8 @@
 // - DNT removal (burn) logic [+]
 // - Token transfer logic (should keep track of user utils) [+]
 // - Implement NULL util logic
+// - Implement all checks (correct util, dnt, is util active)
+// - Figure out token transfer things permissions
 //
 // - Make universal DNT interface
 //     - setInterface
@@ -140,7 +142,7 @@ contract NDistributor is Ownable {
     //                                 these could be used in any utility
     //                                 for example, after token trasfer, reciever will get "null" utility
     constructor() {
-        utilityDB.push(Utility("null", false));
+        utilityDB.push(Utility("null", true));
         dntDB.push(Dnt("null", false));
         DNTContractAdress = address(0x00);
     }
@@ -213,14 +215,14 @@ contract NDistributor is Ownable {
     // @notice                         returns which utilities are used with specific DNT token
     // @param                          [address] _user => user address
     // @param                          [string] _dnt => DNT token name
-    function                           getUserUtilsInDnt(address _user, string memory _dnt) public view returns(string[] memory) { // <--------- doesn;t return
+    function                           getUserUtilsInDnt(address _user, string memory _dnt) public view returns(string[] memory) {
         return (users[_user].dnt[_dnt].userUtils);
     }
 
     // @notice                         returns user's DNT balance
     // @param                          [address] _user => user address
     // @param                          [string] _dnt => DNT token name
-    function                           getUserDntBalance(address _user, string memory _dnt) public returns(uint256) {
+    function                           getUserDntBalance(address _user, string memory _dnt) public returns(uint256) { // <--------- make universal dnt interface
         require(DNTContractAdress != address(0x00), "Interface not set!");
 
         return (DNTContract.balanceOf(_user));
@@ -259,11 +261,11 @@ contract NDistributor is Ownable {
     // @param                          [string] _dnt => name of the dnt token
     // @param                          [string[] ] localUserDnts => array of user's dnts
     function                           _addDntToUser(string memory _dnt, string[] storage localUserDnts) internal onlyOwner {
-        uint256                        id;
+        uint256                        id = dntId[_dnt];
         uint                           l;
         uint                           i = 0;
 
-        require((id = dntId[_dnt]) > 0, "Non-existing DNT!");
+        require(utilityDB[id].isActive == true, "Non-existing DNT!");
         require(dntDB[id].isActive == true, "Inactive DNT token!");
 
         l = localUserDnts.length;
@@ -362,7 +364,7 @@ contract NDistributor is Ownable {
     // @param                          [address] _to => token recepient
     // @param                          [uint256] _amount => amount of tokens to send
     // @param                          [string] _utility => transfered dnt utility
-    // @param                          [string] _dnt => transfered dnt
+    // @param                          [string] _dnt => transfered DNT
     function                           transferDnt(address _from,
                                                    address _to,
                                                    uint256 _amount,
@@ -371,7 +373,21 @@ contract NDistributor is Ownable {
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
 
         removeDnt(_from, _amount, _utility, _dnt);
-        issueDnt(_to, _amount, _utility, "null");
+        issueDnt(_to, _amount, "null", _dnt);
+    }
+
+    // @notice                         allows to set a utility to free tokens (marked with null utility)
+    // @param                          [address] _user => token owner
+    // @param                          [uint256] _amount => amount of tokens to assign
+    // @param                          [string] _newUtility => utility to set
+    // @param                          [string] _dnt => DNT token
+    function                           assignUtilityToNull(address _user,
+                                                           uint256 _amount,
+                                                           string memory _newUtility,
+                                                           string memory _dnt) public onlyOwner {
+      require(users[_user].dnt[_dnt].dntInUtil["null"] >= _amount, "Not enough free tokens!");
+      removeDnt(_user, _amount, "null", _dnt);
+      issueDnt(_user, _amount, _newUtility, _dnt);
     }
 
 
