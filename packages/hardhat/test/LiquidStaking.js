@@ -119,7 +119,8 @@ describe("Liquid staking", function () {
         const t1 = ethers.BigNumber.from(3600 * 24 * 7);
         const t2 = ethers.BigNumber.from(3600 * 24 * 14);
         const t3 = ethers.BigNumber.from(3600 * 24 * 21);
-        it("Stake some tokens", async function () {
+        const t4 = ethers.BigNumber.from(3600 * 24 * 28);
+        it("Should stake some tokens", async function () {
             expect( // stake 1000 for 1 week
                 await LSContract.connect(u1).stake(0, { value: val1 })
             ).to.emit(LSContract, "Staked").withArgs(
@@ -145,6 +146,24 @@ describe("Liquid staking", function () {
             );
             expect( // check stake balance
                 (await LSContract.stakes(2)).totalBalance
+            ).to.be.equal(val3);
+
+            expect( // stake 3000 for 4 week
+                await LSContract.connect(u3).stake(3, { value: val3 })
+            ).to.emit(LSContract, "Staked").withArgs(
+                u3.address, 3, val3, t4
+            );
+            expect( // check stake balance
+                (await LSContract.stakes(3)).totalBalance
+            ).to.be.equal(val3);
+
+            expect( // stake 3000 for 4 week
+                await LSContract.connect(u3).stake(3, { value: val3 })
+            ).to.emit(LSContract, "Staked").withArgs(
+                u3.address, 4, val3, t4
+            );
+            expect( // check stake balance
+                (await LSContract.stakes(4)).totalBalance
             ).to.be.equal(val3);
         });
 
@@ -202,7 +221,7 @@ describe("Liquid staking", function () {
             );
             expect(
                 await nASTRContract.balanceOf(u1.address)
-            ).to.be.equal("0");
+            ).to.be.equal(0);
 
             expect(
                 await LSContract.connect(u2).redeem(1, b2)
@@ -211,7 +230,7 @@ describe("Liquid staking", function () {
             );
             expect(
                 await nASTRContract.balanceOf(u2.address)
-            ).to.be.equal("0");
+            ).to.be.equal(0);
 
             expect(
                 await LSContract.connect(u3).redeem(2, b3)
@@ -220,13 +239,53 @@ describe("Liquid staking", function () {
             );
             expect(
                 await nASTRContract.balanceOf(u3.address)
-            ).to.be.equal("0");
+            ).to.be.equal(0);
         });
 
     });
 
     // @notice get native tokens in exhange of DNTs
     describe("Trading", function () {
+        const p1 = ethers.utils.parseEther("1000");
+        const p2 = ethers.utils.parseEther("3000");
+        const p3 = p2.mul(ethers.BigNumber.from(2));
+        it("Should create some sell orders", async function(){
+            expect (
+                await LSContract.connect(u3).createOrder(3, p1)
+            ).to.emit(LSContract, "OrderChange").withArgs(
+                0, u3.address, true, p1
+            );
+
+            expect (
+                await LSContract.connect(u3).createOrder(4, p2)
+            ).to.emit(LSContract, "OrderChange").withArgs(
+                1, u3.address, true, p2
+            );
+        });
+
+        it("Should cancel some orders", async function(){
+            expect (
+                await LSContract.connect(u3).cancelOrder(0)
+            ).to.emit(LSContract, "OrderChange").withArgs(
+                0, u3.address, false, p1
+            );
+        });
+
+        it("Should set order price", async function () {
+            expect (
+                await LSContract.connect(u3).setPrice(1, p3)
+            ).to.emit(LSContract, "OrderChange").withArgs(
+                1, u3.address, true, p3
+            );
+        });
+        
+        it("Should buy some stakes", async function(){
+            expect(
+                await LSContract.buyStake(1, {value: p3})
+            ).to.emit(LSContract, "OrderComplete").withArgs(
+                1, u3.address, owner.address, p3
+            );
+        });
     });
 });
 

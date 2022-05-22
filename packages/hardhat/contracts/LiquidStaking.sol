@@ -5,7 +5,7 @@
 // - - [ ] another rewards except DNT
 //
 // - QoL:
-// - - [+/-] tests, orders TBD
+// - - [+] tests, orders TBD
 // - - [ ] deployment
 //
 //SPDX-License-Identifier: MIT
@@ -32,7 +32,7 @@ contract LiquidStaking is Ownable {
     uint256   public    totalBalance;
     uint256   public    claimPool;
     uint256   public    minStake;
-    uint256[] public  tfs; // staking timeframes
+    uint256[] public    tfs; // staking timeframes
 
     // @notice DNT distributor
     address public distrAddr;
@@ -271,10 +271,10 @@ contract LiquidStaking is Ownable {
 
     // @notice create new sell order
     // @param  [uint256] id => ID of stake to sell
-    // @param  [uint256] price => desired stake price
+    // @param  [uint256] p => desired stake price
     // @return [uint256] orderID => ID of created order
-    function createOrder(uint256 id, uint256 price) external stakeOwner(id) returns (uint256 orderID) {
-        require(price > 0, "Invalid price!");
+    function createOrder(uint256 id, uint256 p) external stakeOwner(id) returns (uint256 orderID) {
+        require(p > 0, "Invalid price!");
         require(isStakeOwner[msg.sender][id], "Not your stake!");
         require(stakes[id].totalBalance > 0, "Empty stake!");
 
@@ -285,11 +285,11 @@ contract LiquidStaking is Ownable {
             active: true,
             owner: msg.sender,
             stakeID: id,
-            price: price
+            price: p
         });
         isOrderOwner[msg.sender][orderID] = true;
 
-        emit OrderChange(orderID, msg.sender, true, orders[id].price);
+        emit OrderChange(orderID, msg.sender, true, p);
     }
 
     // @notice cancel created order
