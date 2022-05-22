@@ -1,11 +1,23 @@
+// TODO:
+//
+// - Features: 
+// - - [ ] commissions
+// - - [ ] another rewards except DNT
+//
+// - QoL:
+// - - [+/-] tests, orders TBD
+// - - [ ] deployment
+//
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
 import "./nDistributor.sol";
-import "./nASTR.sol";
 import "../libs/@openzeppelin/contracts/access/Ownable.sol";
 import "../libs/@openzeppelin/contracts/utils/Counters.sol";
 
+/**
+ * @title Liquid staking contract
+ */
 contract LiquidStaking is Ownable {
     using Counters for Counters.Counter;
 
@@ -16,32 +28,31 @@ contract LiquidStaking is Ownable {
     // ------------------------------- STAKING SETTINGS 
     // -------------------------------------------------------------------------------------------------------
 
-    // @notice core staking settings
-    string public utilName = "LS"; // Liquid Staking utility name
-    string public DNTname = "nASTR"; // DNT name
-    uint256 public totalBalance;
-    uint256 public claimPool;
-    uint256 public minStake;
-    uint256[] public tfs; // staking timeframes
+    // @notice        core staking settings
+    uint256   public    totalBalance;
+    uint256   public    claimPool;
+    uint256   public    minStake;
+    uint256[] public  tfs; // staking timeframes
 
     // @notice DNT distributor
     address public distrAddr;
-    NDistributor distr;
+    NDistributor   distr;
 
-    // @notice DNT token
-    address public DNTAddr;
-    NASTR DNT;
+    // @notice    nDistributor required values
+    string public utilName = "LS"; // Liquid Staking utility name
+    string public DNTname  = "nASTR"; // DNT name
+
+    mapping(address => mapping(uint256 => bool)) public isStakeOwner;
+    mapping(address => mapping(uint256 => bool)) public isOrderOwner;
 
 
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- STAKE MANAGEMENT 
     // -------------------------------------------------------------------------------------------------------
     
-    // @notice single stake struct, stakes mapping
+    // @notice Stake struct & identifier
     Counters.Counter stakeIDs;
-    struct Stake {
-        address owner;
-
+    struct      Stake {
         uint256 totalBalance;
         uint256 liquidBalance;
         uint256 claimable;
@@ -51,8 +62,9 @@ contract LiquidStaking is Ownable {
         uint256 finDate;
         uint256 lastUpdate;
     }
+
+    // @notice Stakes & their IDs
     mapping(uint256 => Stake) public stakes;
-    mapping(address => uint256[]) public userStakes;
 
     // @notice staking events
     event Staked(address indexed who, uint256 stakeID, uint256 amount, uint256 timeframe);
@@ -64,41 +76,51 @@ contract LiquidStaking is Ownable {
     // ------------------------------- ORDER MANAGEMENT 
     // -------------------------------------------------------------------------------------------------------
     
-    // @notice single order struct, orders mapping
+    // @notice Order struct & identifier
     Counters.Counter orderIDs;
-    struct Order {
-        bool active;
+    struct      Order {
+        bool    active;
         address owner;
         uint256 stakeID;
         uint256 price;
     }
+    
+    // @notice Orders & their IDs
     mapping(uint256 => Order) public orders;
-    mapping(address => uint256[]) public userOrders;
 
     // @notice order events
-    event OrderChange(uint256 id, bool state, uint256 price);
-    event OrderComplete(uint256 id, uint256 price);
+    event OrderChange(uint256 id, address indexed seller, bool state, uint256 price);
+    event OrderComplete(uint256 id, address indexed seller, address indexed buyer, uint256 price);
 
 
     // MODIFIERS
-    //
+
     // @notice checks if msg.sender owns the stake
-    // @param [uint256] id => stake ID
+    // @param  [uint256] id => stake ID
     modifier stakeOwner(uint256 id) {
-        require(stakes[id].owner == msg.sender);
+        require(isStakeOwner[msg.sender][id], "Invalid stake owner!");
+        _;
+    }
+
+    // @notice checks if msg.sender owns the order
+    // @param  [uint256] id => order ID
+    modifier orderOwner(uint256 id) {
+        require(isOrderOwner[msg.sender][id], "Invalid order owner!");
         _;
     }
 
     // @notice updates claimable stake values
-    // @param [uint256] id => stake ID
+    // @param  [uint256] id => stake ID
     modifier updateStake(uint256 id) {
+
         Stake storage s = stakes[id];
-        if (block.timestamp - s.lastUpdate < 3600 * 24 ) {
-            _;
+
+        if (block.timestamp - s.lastUpdate < 1 days ) {
+            _; // reward update once a day
         } else {
-            claimPool -= s.claimable;
+            claimPool -= s.claimable; // i am really sorry for this
             s.claimable = nowClaimable(id);
-            claimPool += s.claimable;
+            claimPool += s.claimable; // i mean really
             s.lastUpdate = block.timestamp;
             _;
         }
@@ -112,86 +134,80 @@ contract LiquidStaking is Ownable {
     // -------------------------------------------------------------------------------------------------------
 
     // @notice set distributor and DNT addresses, minimum staking amount
-    // @param [address] _distrAddr => DNT distributor address
-    // @param [address] _DNTaddr => DNT contract address
-    // @param [uint256] _min => minimum value to stake
-    constructor(address _distrAddr, address _DNTaddr, uint256 _min) {
+    // @param  [address] _distrAddr => DNT distributor address
+    // @param  [uint256] _min => minimum value to stake
+    constructor(address _distrAddr, uint256 _min) {
+
+        // @dev set distributor address and contract instance
         distrAddr = _distrAddr;
         distr = NDistributor(distrAddr);
-        DNTAddr = _DNTaddr;
-        DNT = NASTR(DNTAddr);
+
         minStake = _min;
     }
 
     // @notice add new timeframe
-    // @param [uint256] newT => new timeframe value
-    function addTerm(uint256 newT) external onlyOwner {
-        tfs.push(newT);
+    // @param  [uint256] t => new timeframe value
+    function addTerm(uint256 t) external onlyOwner {
+        tfs.push(t);
     }
 
     // @notice change timeframe value
-    // @param [uint8] termN => timeframe index
-    // @param [uint256] newT => new timeframe value
-    function changeTerm(uint8 termN, uint256 newT) external onlyOwner {
-        tfs[termN] = newT;
+    // @param  [uint8]   n => timeframe index
+    // @param  [uint256] t => new timeframe value
+    function changeTerm(uint8 n, uint256 t) external onlyOwner {
+        tfs[n] = t;
     }
 
     // @notice set distributor
-    // @param [address] newDistr => new distributor address
-    function setDistr(address newDistr) external onlyOwner {
-        distrAddr = newDistr;
+    // @param  [address] a => new distributor address
+    function setDistr(address a) external onlyOwner {
+        distrAddr = a;
         distr = NDistributor(distrAddr);
     }
 
-    // @notice set DNT
-    // @param [address] newDnt => new DNT address
-    function setDNT(address newDNT) external onlyOwner {
-        DNTAddr = newDNT;
-        DNT = NASTR(DNTAddr);
+    // @notice set minimum stake value
+    // @param  [uint256] v => new minimum stake value
+    function setMinStake(uint256 v) external onlyOwner {
+        minStake = v;
     }
 
-    // @notice set minimum stake value
-    // @param [uint256] newMin => new minimum stake value
-    function setMinStake(uint256 newMin) external onlyOwner {
-        minStake = newMin;
-    }
 
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- Stake managment (stake/redeem tokens, claim DNTs)
     // -------------------------------------------------------------------------------------------------------
 
     // @notice create new stake with desired timeframe
-    // @param [uint8] timeframe => desired timeframe index, chosen from tfs[] array
+    // @param  [uint8]   timeframe => desired timeframe index, chosen from tfs[] array
     // @return [uint256] id => ID of created stake
     function stake(uint8 timeframe) external payable returns (uint256 id) {
-        // @dev check if there is enough value
 		require(msg.value >= minStake, "Value less than minimum stake amount");
+
+        uint256 val = msg.value;
 
         // @dev create new stake
         id = stakeIDs.current();
         stakeIDs.increment();
         stakes[id] = Stake ({
-            owner: msg.sender,
-            totalBalance: msg.value,
+            totalBalance: val,
             liquidBalance: 0,
-            claimable: msg.value / 2,
-            rate: msg.value / 2 / tfs[timeframe] / 24 / 3600,
+            claimable: val / 2,
+            rate: val / 2 / tfs[timeframe] / 1 days,
             startDate: block.timestamp,
             finDate: block.timestamp + tfs[timeframe],
             lastUpdate: block.timestamp
         });
-        // @dev add stake ID to user stakes
-        userStakes[msg.sender].push(id);
+        isStakeOwner[msg.sender][id] = true;
 
         // @dev update global balances and emit event
-        totalBalance += msg.value;
-        claimPool += msg.value / 2;
-        emit Staked(msg.sender, id, msg.value, tfs[timeframe]);
+        totalBalance += val;
+        claimPool += val / 2;
+
+        emit Staked(msg.sender, id, val, tfs[timeframe]);
     }
 
     // @notice claim available DNT from stake
-    // @param [uint256] id => stake ID
-    // @param [uint256] amount => amount of requested DNTs
+    // @param  [uint256] id => stake ID
+    // @param  [uint256] amount => amount of requested DNTs
     function claim(uint256 id, uint256 amount) external stakeOwner(id) updateStake(id) {
         require(amount > 0, "Invalid amount!");
 
@@ -199,24 +215,25 @@ contract LiquidStaking is Ownable {
         require(s.claimable >= amount, "Invalid amount!");
 
         // @dev update balances
-        stakes[id].claimable -= amount;
-        stakes[id].liquidBalance += amount;
+        s.claimable -= amount;
+        s.liquidBalance += amount;
         claimPool -= amount;
 
         // @dev issue DNT and emit event
         distr.issueDnt(msg.sender, amount, utilName, DNTname);
+
         emit Claimed(msg.sender, id, amount);
     }
 
     // @notice redeem DNTs to retrieve native tokens from stake
-    // @param [uint256] id => stake ID
-    // @param [uint256] amount => amount of tokens to redeem
+    // @param  [uint256] id => stake ID
+    // @param  [uint256] amount => amount of tokens to redeem
     function redeem(uint256 id, uint256 amount) external stakeOwner(id) {
         require(amount > 0, "Invalid amount!");
 
         Stake storage s = stakes[id];
         // @dev can redeem only after finDate
-        require(s.finDate < block.timestamp, "Cannot do it yet!");
+        require(block.timestamp > s.finDate, "Cannot do it yet!");
 
         uint256 uBalance = distr.getUserDntBalanceInUtil(msg.sender, utilName, DNTname);
         require(uBalance >= amount, "Insuffisient DNT balance!");
@@ -226,12 +243,15 @@ contract LiquidStaking is Ownable {
         // @dev burn DNT, send native token, emit event
         distr.removeDnt(msg.sender, amount, utilName, DNTname);
         payable(msg.sender).call{value: amount};
+
         emit Redeemed(msg.sender, id, amount);
     }
 
     // @notice returns the amount of DNTs available for claiming right now
-    // @param [uint256] id => stake ID
+    // @param  [uint256] id => stake ID
+    // @return [uint256] amount => amount of claimable DNT right now
     function nowClaimable(uint256 id) public view returns (uint256 amount) {
+
         Stake memory s = stakes[id];
 
         if ( block.timestamp >= s.finDate) { // @dev if finDate already passed we can claim the rest
@@ -250,16 +270,15 @@ contract LiquidStaking is Ownable {
     // -------------------------------------------------------------------------------------------------------
 
     // @notice create new sell order
-    // @param [uint256] id => ID of stake to sell
-    // @param [uint256] price => desired stake price
+    // @param  [uint256] id => ID of stake to sell
+    // @param  [uint256] price => desired stake price
     // @return [uint256] orderID => ID of created order
     function createOrder(uint256 id, uint256 price) external stakeOwner(id) returns (uint256 orderID) {
         require(price > 0, "Invalid price!");
-        Stake memory s = stakes[id];
-        require(s.owner == msg.sender, "Not your stake!");
-        require(s.totalBalance > 0, "Empty stake!");
+        require(isStakeOwner[msg.sender][id], "Not your stake!");
+        require(stakes[id].totalBalance > 0, "Empty stake!");
 
-        // @dev create new order and add it to userOrders
+        // @dev create new order and add it to user orders
         orderID = orderIDs.current();
         orderIDs.increment();
         orders[orderID] = Order ({
@@ -268,28 +287,63 @@ contract LiquidStaking is Ownable {
             stakeID: id,
             price: price
         });
-        userOrders[msg.sender].push(id);
+        isOrderOwner[msg.sender][orderID] = true;
 
-        emit OrderChange(orderID, true, orders[id].price);
+        emit OrderChange(orderID, msg.sender, true, orders[id].price);
     }
 
-    function cancelOrder(uint256 id) external {
+    // @notice cancel created order
+    // @param  [uint256] id => order ID
+    function cancelOrder(uint256 id) external orderOwner(id) {
+
         Order storage o = orders[id];
+
         require(o.active, "Inactive order!");
-        require(o.owner == msg.sender, "Not your order!");
+
         o.active = false;
 
-        emit OrderChange(id, false, orders[id].price);
+        emit OrderChange(id, msg.sender, false, o.price);
     }
 
+    // @notice set new order price
+    // @param  [uint256] id => order ID
+    // @param  [uint256] p => new order price
+    function setPrice(uint256 id, uint256 p) external orderOwner(id) {
+
+        orders[id].price = p;
+
+        emit OrderChange(id, msg.sender, true, p);
+    }
+
+    // @notice buy stake with particular order
+    // @param  [uint256] id => order ID
     function buyStake(uint256 id) external payable {
+        require(!isOrderOwner[msg.sender][id], "It's your order!");
+
         Order storage o = orders[id];
+
         require(o.active, "Inactive order!");
-        require(o.owner != msg.sender, "Your order!");
         require(msg.value == o.price, "Insuffisient value!");
+
+        // @dev set order inactive
         o.active = false;
-        stakes[o.stakeID].owner = msg.sender;
+
+        // @dev change ownership
+        isStakeOwner[o.owner][o.stakeID] = false;
+        isStakeOwner[msg.sender][o.stakeID] = true;
+
+        // @dev current amount of minted DNT for this stake
+        uint256 liquid = stakes[o.stakeID].liquidBalance;
+
+        // @dev update DNT balances if there were any
+        if (liquid  > 0) {
+            distr.removeDnt(o.owner, liquid, utilName, DNTname);
+            distr.issueDnt(msg.sender, liquid, utilName, DNTname);
+        }
+
+        // @dev finally pay
         payable(o.owner).call{value: msg.value};
-        emit OrderComplete(id, o.price);
+
+        emit OrderComplete(id, o.owner, msg.sender, o.price);
     }
 }
