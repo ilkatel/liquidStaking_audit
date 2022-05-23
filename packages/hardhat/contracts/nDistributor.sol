@@ -12,19 +12,19 @@
 // - Add DNT balance getter function for user from DNT contract [+]
 // - DNT removal (burn) logic [+]
 // - Token transfer logic (should keep track of user utils) [+]
-// - Implement NULL util logic
+// - Implement NULL util logic [+]
 // - Implement all checks (correct util, dnt, is util active)
 // - Figure out token transfer things permissions
 //
-// - Make universal DNT interface
+// - Make universal DNT interface [+]
 //     - setInterface
 //     - mint
 //     - burn
 //     - balance
 //     - transfer
 //
-// - Add the rest of the DNT token functions (pause, snapshot, etc) to interface
-// - Add those functions to distributor
+// - Add the rest of the DNT token functions (pause, snapshot, etc) to interface [+]
+// - Add those functions to distributor [+]
 // - Make sure ownership over DNT tokens isn't lost
 // - Add proxy contract for managing access to DNT contracts
 
@@ -32,7 +32,7 @@
 // SET-UP:
 // 1. Deploy nDistributor
 // 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
-// 3. Call "setAstrInterface" in nDistributor with nASTR contract address
+// 3. Add nASTR DNT
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
@@ -122,8 +122,10 @@ contract NDistributor is Ownable {
     mapping (string => uint) public    dntId;
 
     // @notice                          DNT token contract interface
-    address public                      DNTContractAdress;
     IDNT                                DNTContract;
+
+    // @notice                         stores DNT contract addresses
+    mapping (string => address) public dntContracts;
 
 
 
@@ -144,7 +146,6 @@ contract NDistributor is Ownable {
     constructor() {
         utilityDB.push(Utility("null", true));
         dntDB.push(Dnt("null", false));
-        DNTContractAdress = address(0x00);
     }
 
     // @notice                         returns the list of all utilities
@@ -169,12 +170,20 @@ contract NDistributor is Ownable {
 
     // @notice                         adds new DNT to the DB, activates it by default
     // @param                          [string] _newDnt => name of the new DNT
-    function                           addDnt(string memory _newDnt) external onlyOwner { // <--------- also set contract address for interface here
+    function                           addDnt(string memory _newDnt, address _dntAdress) external onlyOwner {
         uint                           lastId = dntDB.length;
 
         dntId[_newDnt] = lastId;
         dntDB.push(Dnt(_newDnt, true));
         dnts.push(_newDnt);
+        dntContracts[_newDnt] = _dntAdress;
+    }
+
+    // @notion                         allows to change DNT asset contract address
+    // @param                          [string] _dnt => name of the DNT
+    // @param                          [address] _address => new address
+    function                           changeDntAddress(string memory _dnt, address _address) external onlyOwner {
+      dntContracts[_dnt] = _address;
     }
 
     // @notice                         allows to activate\deactivate utility
@@ -216,16 +225,15 @@ contract NDistributor is Ownable {
     // @param                          [address] _user => user address
     // @param                          [string] _dnt => DNT token name
     function                           getUserUtilsInDnt(address _user, string memory _dnt) public view returns(string[] memory) {
-        return (users[_user].dnt[_dnt].userUtils);
+      return (users[_user].dnt[_dnt].userUtils);
     }
 
     // @notice                         returns user's DNT balance
     // @param                          [address] _user => user address
     // @param                          [string] _dnt => DNT token name
-    function                           getUserDntBalance(address _user, string memory _dnt) public returns(uint256) { // <--------- make universal dnt interface
-        require(DNTContractAdress != address(0x00), "Interface not set!");
-
-        return (DNTContract.balanceOf(_user));
+    function                           getUserDntBalance(address _user, string memory _dnt) public returns(uint256) {
+      _setDntInterface(_dnt);
+      return (DNTContract.balanceOf(_user));
     }
 
 
@@ -241,12 +249,16 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to mint
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           issueDnt(address _to, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner { // <-------- DNT contract selection needed
+    function                           issueDnt(address _to,
+                                                uint256 _amount,
+                                                string memory _utility,
+                                                string memory _dnt) public onlyOwner { // <-------- DNT contract selection needed
         uint256                        id;
 
-        require(DNTContractAdress != address(0x00), "Interface not set!");
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
         require(utilityDB[id].isActive == true, "Inactive utility!");
+
+        _setDntInterface(_dnt);
 
         _addDntToUser(_dnt, users[_to].userDnts);
         _addUtilityToUser(_utility, users[_to].userUtilities);
@@ -300,16 +312,16 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to burn
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           removeDnt(address _account, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner { // <-------- DNT contract selection needed
+    function                           removeDnt(address _account, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner {
         uint256                        id;
-
-        require(DNTContractAdress != address(0x00), "Interface not set!");
 
         require((id = utilityId[_utility]) > 0, "Non-existing utility!");
         require(utilityDB[id].isActive == true, "Inactive utility!");
 
         require(users[_account].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT in utility!");
         require(users[_account].dnt[_dnt].dntLiquid >= _amount, "Not enough liquid DNT!");
+
+        _setDntInterface(_dnt);
 
         users[_account].dnt[_dnt].dntInUtil[_utility] -= _amount;
         users[_account].dnt[_dnt].dntLiquid -= _amount;
@@ -398,17 +410,22 @@ contract NDistributor is Ownable {
     // ------------------------------- Admin
     // -------------------------------------------------------------------------------------------------------
 
-    // @notice                          allows to specify nASTR token contract address
+    // @notice                          allows to specify DNT token contract address
     // @param                           [address] _contract => nASTR contract address
-    function                            setAstrInterface(address _contract) external onlyOwner {
-        DNTContractAdress = _contract;
-        DNTContract = IDNT(DNTContractAdress);
+    function                            _setDntInterface(string memory _dnt) internal onlyOwner {
+      address                           contractAddr = dntContracts[_dnt];
+
+      require(contractAddr != address(0x00), "Invalid DNT!");
+      require(dntDB[dntId[_dnt]].isActive == true, "Inactive Dnt!");
+
+      DNTContract = IDNT(contractAddr);
     }
 
     // @notice                          allows to transfer ownership of the DNT contract
-    // @param                           [address] to => new owner
-    // @param                           [string] dntToken => name of the dnt token contract
-    function                            transferDntContractOwnership(address to) public onlyOwner {  // <----------------------- Add contract selection
-        DNTContract.transferOwnership(to);
+    // @param                           [address] _to => new owner
+    // @param                           [string] _dnt => name of the dnt token contract
+    function                            transferDntContractOwnership(address _to, string memory _dnt) public onlyOwner {
+      _setDntInterface(_dnt);
+      DNTContract.transferOwnership(_to);
     }
 }
