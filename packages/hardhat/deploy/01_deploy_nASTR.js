@@ -5,7 +5,7 @@
 
 // <----------------------------------------------- specify contract name
 //const CONTRACT_NAME = "ALGM";
-const CONTRACT_NAME = "nASTR";
+const CONTRACT_NAME = "NASTR";
 
 const argsFile = "../contract-arguments/" + CONTRACT_NAME + "-args";
 const { ethers } = require("hardhat");
