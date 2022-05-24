@@ -83,7 +83,7 @@ contract NDistributor is Ownable {
     // ------------------------------- UTILITY MANAGMENT
     // -------------------------------------------------------------------------------------------------------
 
-    // @notice                         defidescribesnes utility (Algem offer\opportunity) struct
+    // @notice                         describes utility (Algem offer\opportunity) struct
     struct                             Utility {
         string                         utilityName;
         bool                           isActive;
@@ -140,12 +140,14 @@ contract NDistributor is Ownable {
     // @notice                         initializes utilityDB & dntDB
     // @dev                            first element in mapping & non-existing entry both return 0
     //                                 so we initialize it to avoid confusion
-    // @dev                            "null" utility also means tokens not connected to utility
+    // @dev                            "null" utility means tokens not connected to utility
     //                                 these could be used in any utility
     //                                 for example, after token trasfer, reciever will get "null" utility
     constructor() {
+        utilityDB.push(Utility("empty", false));
         utilityDB.push(Utility("null", true));
-        dntDB.push(Dnt("null", false));
+        utilityId["null"] = 1;
+        dntDB.push(Dnt("empty", false));
     }
 
     // @notice                         returns the list of all utilities
@@ -252,11 +254,9 @@ contract NDistributor is Ownable {
     function                           issueDnt(address _to,
                                                 uint256 _amount,
                                                 string memory _utility,
-                                                string memory _dnt) public onlyOwner { // <-------- DNT contract selection needed
-        uint256                        id;
+                                                string memory _dnt) public onlyOwner {
 
-        require((id = utilityId[_utility]) > 0, "Non-existing utility!");
-        require(utilityDB[id].isActive == true, "Inactive utility!");
+        require(utilityDB[utilityId[_dnt]].isActive == true, "Invalid utility!");
 
         _setDntInterface(_dnt);
 
@@ -277,8 +277,8 @@ contract NDistributor is Ownable {
         uint                           l;
         uint                           i = 0;
 
-        require(utilityDB[id].isActive == true, "Non-existing DNT!");
-        require(dntDB[id].isActive == true, "Inactive DNT token!");
+        require(utilityDB[id].isActive == true, "Invalid DNT!");
+        require(dntDB[id].isActive == true, "Inactive DNT!");
 
         l = localUserDnts.length;
         for (i; i < l; i++) {
@@ -312,11 +312,12 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to burn
     // @param                          [string] _utility => minted dnt utility
     // @param                          [string] _dnt => minted dnt
-    function                           removeDnt(address _account, uint256 _amount, string memory _utility, string memory _dnt) public onlyOwner {
-        uint256                        id;
-
-        require((id = utilityId[_utility]) > 0, "Non-existing utility!");
-        require(utilityDB[id].isActive == true, "Inactive utility!");
+    function                           removeDnt(address _account,
+                                                 uint256 _amount,
+                                                 string memory _utility,
+                                                 string memory _dnt) public onlyOwner {
+                                                   
+        require(utilityDB[utilityId[_dnt]].isActive == true, "Invalid utility!");
 
         require(users[_account].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT in utility!");
         require(users[_account].dnt[_dnt].dntLiquid >= _amount, "Not enough liquid DNT!");
@@ -393,7 +394,7 @@ contract NDistributor is Ownable {
     // @param                          [uint256] _amount => amount of tokens to assign
     // @param                          [string] _newUtility => utility to set
     // @param                          [string] _dnt => DNT token
-    function                           assignUtilityToNull(address _user,
+    function                           assignUtilityFromNull(address _user,
                                                            uint256 _amount,
                                                            string memory _newUtility,
                                                            string memory _dnt) public onlyOwner {

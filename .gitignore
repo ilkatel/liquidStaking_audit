@@ -71,10 +71,6 @@ yarn-error.log*
 *.tsbuildinfo
 *.stackdump
 
-# doc directory
-/doc
-Algem project development log.docx
-
 .DS_Store
 *.docx
 *.doc
