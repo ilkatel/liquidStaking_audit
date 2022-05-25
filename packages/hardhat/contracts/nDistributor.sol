@@ -16,7 +16,13 @@
 // - Assign util tokens to NULL [+]
 // - Proper NULL utill tracking for getters [+]
 // - Implement all checks (correct util, dnt, is util active) [+]
-// - Figure out contract permissions
+// - Manage contract permissions via access control
+//     - add contract roles [+]
+//     - add role managment functions [+]
+//          - change owner
+//          - add manager
+//          - remove manager
+//          - change manager
 //
 // - Make universal DNT interface [+]
 //     - setInterface
@@ -27,27 +33,26 @@
 //
 // - Add the rest of the DNT token functions (pause, snapshot, etc) to interface [+]
 // - Add those functions to distributor [+]
+// - Add events
 
 
 // SET-UP:
 // 1. Deploy nDistributor
 // 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
 // 3. Add nASTR DNT to Distributor
+// 4. Add manager (i.e. utility contract)
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts/access/Ownable.sol";
+import "../libs/@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IDNT.sol";
 
 
 /*
  * @notice ERC20 DNT token distributor contract
- *
- * Features:
- * - Ownable
  */
-contract NDistributor is Ownable {
+contract NDistributor is AccessControl {
 
     // MODIFIERS
     //
@@ -136,8 +141,8 @@ contract NDistributor is Ownable {
     // @notice                         keeps track of DNT ids
     mapping (string => uint) public    dntId;
 
-    // @notice                          DNT token contract interface
-    IDNT                                DNTContract;
+    // @notice                         DNT token contract interface
+    IDNT                               DNTContract;
 
     // @notice                         stores DNT contract addresses
     mapping (string => address) public dntContracts;
@@ -145,26 +150,101 @@ contract NDistributor is Ownable {
 
 
 
+    // -------------------------------------------------------------------------------------------------------
+    // -------------------------------- ACCESS CONTROL ROLES
+    // -------------------------------------------------------------------------------------------------------
+
+    // @notice                         stores current contract owner
+    address public                     owner;
+
+    // @notice                         stores addresses with privileged access
+    address[]                          managers;
+    mapping(address => uint256)        managerIds;
+
+    // @notice                         manager contract role
+    bytes32 public constant            MANAGER = keccak256("MANAGER");
+
+
+
 
     // FUNCTIONS
     //
     // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- Asset managment (utilities and DNTs tracking)
+    // ------------------------------- Constructor
     // -------------------------------------------------------------------------------------------------------
 
-    // @notice                         initializes utilityDB & dntDB
-    // @dev                            first element in mapping & non-existing entry both return 0
-    //                                 so we initialize it to avoid confusion
-    // @dev                            "null" utility means tokens not connected to utility
-    //                                 these could be used in any utility
-    //                                 for example, after token trasfer, reciever will get "null" utility
     constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        owner = msg.sender;
+
         utilityDB.push(Utility("empty", false));
         utilityDB.push(Utility("null", true));
         utilityId["null"] = 1;
         utilities.push("null");
         dntDB.push(Dnt("empty", false));
     }
+
+
+
+
+
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- Role managment
+    // -------------------------------------------------------------------------------------------------------
+
+    // @notice                         changes owner roles
+    // @param                          [address] _newOwner => new contract owner
+    function                           changeOwner(address _newOwner) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(DEFAULT_ADMIN_ROLE, _newOwner);
+        _revokeRole(DEFAULT_ADMIN_ROLE, owner);
+        owner = _newOwner;
+    }
+
+    // @notice                         returns the list of all managers
+    function                           listManagers() external view returns(address[] memory) {
+        return managers;
+    }
+
+    // @notice                         adds manager role
+    // @param                          [address] _newManager => new manager to add
+    function                           addManager(address _newManager) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        managerIds[_newManager] = managers.length;
+        managers.push(_newManager);
+        _grantRole(MANAGER, _newManager);
+    }
+
+    // @notice                         removes manager role
+    // @param                          [address] _newManager => new manager to remove
+    function                           removeManager(address _manager) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256                        id = managerIds[_manager];
+
+        delete managers[id];
+        _revokeRole(MANAGER, _manager);
+        managerIds[_manager] = 0;
+    }
+
+    // @notice                         removes manager role
+    // @param                          [address] _oldAddress => old manager address
+    // @param                          [address] _newAddress => new manager address
+    function                           changeManagerAddress(address _oldAddress, address _newAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        removeManager(_oldAddress);
+        addManager(_newAddress);
+    }
+
+
+
+
+
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- Asset managment (utilities and DNTs tracking)
+    // -------------------------------------------------------------------------------------------------------
+
+    // @notice                         grants admin role to msg sender & initializes utilityDB & dntDB
+    // @dev                            first element in mapping & non-existing entry both return 0
+    //                                 so we initialize it to avoid confusion
+    // @dev                            "null" utility means tokens not connected to utility
+    //                                 these could be used in any utility
+    //                                 for example, after token trasfer, reciever will get "null" utility
 
     // @notice                         returns the list of all utilities
     function                           listUtilities() external view returns(string[] memory) {
@@ -178,7 +258,7 @@ contract NDistributor is Ownable {
 
     // @notice                         adds new utility to the DB, activates it by default
     // @param                          [string] _newUtility => name of the new utility
-    function                           addUtility(string memory _newUtility) external onlyOwner {
+    function                           addUtility(string memory _newUtility) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint                           lastId = utilityDB.length;
 
         utilityId[_newUtility] = lastId;
@@ -188,7 +268,7 @@ contract NDistributor is Ownable {
 
     // @notice                         adds new DNT to the DB, activates it by default
     // @param                          [string] _newDnt => name of the new DNT
-    function                           addDnt(string memory _newDnt, address _dntaddress) external onlyOwner {
+    function                           addDnt(string memory _newDnt, address _dntaddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint                           lastId = dntDB.length;
 
         dntId[_newDnt] = lastId;
@@ -200,21 +280,21 @@ contract NDistributor is Ownable {
     // @notion                         allows to change DNT asset contract address
     // @param                          [string] _dnt => name of the DNT
     // @param                          [address] _address => new address
-    function                           changeDntaddress(string memory _dnt, address _address) external onlyOwner {
+    function                           changeDntAddress(string memory _dnt, address _address) external onlyRole(DEFAULT_ADMIN_ROLE) {
       dntContracts[_dnt] = _address;
     }
 
     // @notice                         allows to activate\deactivate utility
     // @param                          [uint256] _id => utility id
     // @param                          [bool] _state => desired state
-    function                           setUtilityStatus(uint256 _id, bool _state) public onlyOwner {
+    function                           setUtilityStatus(uint256 _id, bool _state) public onlyRole(DEFAULT_ADMIN_ROLE) {
         utilityDB[_id].isActive = _state;
     }
 
     // @notice                         allows to activate\deactivate DNT
     // @param                          [uint256] _id => DNT id
     // @param                          [bool] _state => desired state
-    function                           setDntStatus(uint256 _id, bool _state) public onlyOwner {
+    function                           setDntStatus(uint256 _id, bool _state) public onlyRole(DEFAULT_ADMIN_ROLE) {
         dntDB[_id].isActive = _state;
     }
 
@@ -269,7 +349,7 @@ contract NDistributor is Ownable {
     function                           issueDnt(address _to,
                                                 uint256 _amount,
                                                 string memory _utility,
-                                                string memory _dnt) public onlyOwner dntInterface(_dnt) {
+                                                string memory _dnt) public onlyRole(MANAGER) dntInterface(_dnt) {
 
         require(utilityDB[utilityId[_utility]].isActive == true, "Invalid utility!");
 
@@ -285,7 +365,7 @@ contract NDistributor is Ownable {
     // @notice                         adds dnt string to user array of dnts for tracking which assets are in possession
     // @param                          [string] _dnt => name of the dnt token
     // @param                          [string[] ] localUserDnts => array of user's dnts
-    function                           _addDntToUser(string memory _dnt, string[] storage localUserDnts) internal onlyOwner {
+    function                           _addDntToUser(string memory _dnt, string[] storage localUserDnts) internal onlyRole(MANAGER) {
         uint                           l;
         uint                           i = 0;
 
@@ -304,7 +384,7 @@ contract NDistributor is Ownable {
     // @notice                         adds utility string to user array of utilities for tracking which assets are in possession
     // @param                          [string] _utility => name of the utility token
     // @param                          [string[] ] localUserUtilities => array of user's utilities
-    function                           _addUtilityToUser(string memory _utility, string[] storage localUserUtilities) internal onlyOwner {
+    function                           _addUtilityToUser(string memory _utility, string[] storage localUserUtilities) internal onlyRole(MANAGER) {
         uint                           l;
         uint                           i = 0;
         uint256                        id = utilityId[_utility];
@@ -329,7 +409,7 @@ contract NDistributor is Ownable {
     function                           removeDnt(address _account,
                                                  uint256 _amount,
                                                  string memory _utility,
-                                                 string memory _dnt) public onlyOwner dntInterface(_dnt) {
+                                                 string memory _dnt) public onlyRole(MANAGER) dntInterface(_dnt) {
 
         require(utilityDB[utilityId[_utility]].isActive == true, "Invalid utility!");
 
@@ -353,7 +433,7 @@ contract NDistributor is Ownable {
     // @notice                         removes utility string from user array of utilities
     // @param                          [string] _utility => name of the utility token
     // @param                          [string[] ] localUserUtilities => array of user's utilities
-    function                           _removeUtilityFromUser(string memory _utility, string[] storage localUserUtilities) internal onlyOwner {
+    function                           _removeUtilityFromUser(string memory _utility, string[] storage localUserUtilities) internal onlyRole(MANAGER) {
         uint                           l;
         uint                           i = 0;
 
@@ -370,7 +450,7 @@ contract NDistributor is Ownable {
     // @notice                         removes DNT string from user array of DNTs
     // @param                          [string] _dnt => name of the DNT token
     // @param                          [string[] ] localUserDnts => array of user's DNTs
-    function                           _removeDntFromUser(string memory _dnt, string[] storage localUserDnts) internal onlyOwner {
+    function                           _removeDntFromUser(string memory _dnt, string[] storage localUserDnts) internal onlyRole(MANAGER) {
         uint                           l;
         uint                           i = 0;
 
@@ -394,7 +474,7 @@ contract NDistributor is Ownable {
                                                    address _to,
                                                    uint256 _amount,
                                                    string memory _utility,
-                                                   string memory _dnt) public onlyOwner {
+                                                   string memory _dnt) public onlyRole(MANAGER) {
 
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
 
@@ -410,7 +490,7 @@ contract NDistributor is Ownable {
     function                           assignUtilityFromNull(address _user,
                                                            uint256 _amount,
                                                            string memory _newUtility,
-                                                           string memory _dnt) public onlyOwner {
+                                                           string memory _dnt) public onlyRole(MANAGER) {
 
       require(dntDB[dntId[_dnt]].isActive == true, "Invalid DNT!");
       require(utilityDB[utilityId[_newUtility]].isActive == true, "Invalid utility!");
@@ -430,7 +510,7 @@ contract NDistributor is Ownable {
 
     // @notice                          allows to specify DNT token contract address
     // @param                           [address] _contract => nASTR contract address
-    function                            _setDntInterface(string memory _dnt) internal onlyOwner {
+    function                            _setDntInterface(string memory _dnt) internal onlyRole(MANAGER) {
       address                           contractAddr = dntContracts[_dnt];
 
       require(contractAddr != address(0x00), "Invalid address!");
@@ -442,8 +522,13 @@ contract NDistributor is Ownable {
     // @notice                          allows to transfer ownership of the DNT contract
     // @param                           [address] _to => new owner
     // @param                           [string] _dnt => name of the dnt token contract
-    function                            transferDntContractOwnership(address _to, string memory _dnt) public onlyOwner dntInterface(_dnt) {
+    function                            transferDntContractOwnership(address _to, string memory _dnt) public onlyRole(DEFAULT_ADMIN_ROLE) dntInterface(_dnt) {
       require(dntDB[dntId[_dnt]].isActive == true, "Invalid Dnt!");
       DNTContract.transferOwnership(_to);
     }
+
+  // @notice                           overrides required by Solidity
+  function                             supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
+      return super.supportsInterface(interfaceId);
+  }
 }
