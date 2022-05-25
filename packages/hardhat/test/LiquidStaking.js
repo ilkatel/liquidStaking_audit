@@ -43,55 +43,55 @@ describe("Liquid staking", function () {
         distrContract = await DistrFactory.deploy();
         nASTRContract = await nASTRFactory.deploy(distrContract.address);
 
-        await distrContract.setAstrInterface(nASTRContract.address);
+        await distrContract.addDnt("nASTR", nASTRContract.address);
 
         LSContract = await LSfactory.deploy(ethers.constants.AddressZero, ethers.BigNumber.from(0));
         await distrContract.addUtility("LS");
-        await distrContract.addDnt("nASTR");
+        await distrContract.addManager(LSContract.address);
     });
 
     // @notice set staking timeframes etc.
     describe("Staking settings", function () {
-        const t1 = ethers.BigNumber.from(3600 * 24 * 7);
-        const t2 = ethers.BigNumber.from(3600 * 24 * 14);
-        const t3 = ethers.BigNumber.from(3600 * 24 * 21);
-        const t4 = ethers.BigNumber.from(3600 * 24 * 24);
-        const t5 = ethers.BigNumber.from(3600 * 24 * 28);
+        const t1 = 3600 * 24 * 7;
+        const t2 = 3600 * 24 * 14;
+        const t3 = 3600 * 24 * 21;
+        const t4 = 3600 * 24 * 24;
+        const t5 = 3600 * 24 * 28;
 
         it("Should add 3 staking terms", async function () {
             expect(
                 await LSContract.addTerm(t1) // week
             ).to.satisfy;
             expect(
-                await LSContract.tfs(0)
+                await LSContract.tfs(1)
             ).to.be.equal(t1);
 
             expect(
                 await LSContract.addTerm(t2) // 2 weeks
             ).to.satisfy;
             expect(
-                await LSContract.tfs(1)
+                await LSContract.tfs(2)
             ).to.be.equal(t2);
 
             expect(
                 await LSContract.addTerm(t3) // 3 weeks
             ).to.satisfy;
             expect(
-                await LSContract.tfs(2)
+                await LSContract.tfs(3)
             ).to.be.equal(t3);
 
             expect(
                 await LSContract.addTerm(t4) // 4 weeks!?
             ).to.satisfy;
             expect(
-                await LSContract.tfs(3)
+                await LSContract.tfs(4)
             ).to.be.equal(t4);
 
             expect(
-                await LSContract.changeTerm(3, t5) // now really
+                await LSContract.changeTerm(4, t5) // now really
             ).to.satisfy;
             expect(
-                await LSContract.tfs(3)
+                await LSContract.tfs(4)
             ).to.be.equal(t5);
         });
 
@@ -119,51 +119,32 @@ describe("Liquid staking", function () {
         const t1 = ethers.BigNumber.from(3600 * 24 * 7);
         const t2 = ethers.BigNumber.from(3600 * 24 * 14);
         const t3 = ethers.BigNumber.from(3600 * 24 * 21);
-        const t4 = ethers.BigNumber.from(3600 * 24 * 28);
         it("Should stake some tokens", async function () {
             expect( // stake 1000 for 1 week
-                await LSContract.connect(u1).stake(0, { value: val1 })
+                await LSContract.connect(u1).stake(1, { value: val1 })
             ).to.emit(LSContract, "Staked").withArgs(
-                u1.address, 0, val1, t1
+                u1.address, val1, t1
             );
             expect( // check stake balance
-                (await LSContract.stakes(0)).totalBalance
+                (await LSContract.stakes(u1.address)).totalBalance
             ).to.be.equal(val1);
 
             expect( // stake 2000 for 2 week
-                await LSContract.connect(u2).stake(1, { value: val2 })
+                await LSContract.connect(u2).stake(2, { value: val2 })
             ).to.emit(LSContract, "Staked").withArgs(
-                u2.address, 1, val2, t2
+                u2.address, val2, t2
             );
             expect( // check stake balance
-                (await LSContract.stakes(1)).totalBalance
+                (await LSContract.stakes(u2.address)).totalBalance
             ).to.be.equal(val2);
 
             expect( // stake 3000 for 3 week
-                await LSContract.connect(u3).stake(2, { value: val3 })
-            ).to.emit(LSContract, "Staked").withArgs(
-                u3.address, 2, val3, t3
-            );
-            expect( // check stake balance
-                (await LSContract.stakes(2)).totalBalance
-            ).to.be.equal(val3);
-
-            expect( // stake 3000 for 4 week
                 await LSContract.connect(u3).stake(3, { value: val3 })
             ).to.emit(LSContract, "Staked").withArgs(
-                u3.address, 3, val3, t4
+                u3.address, val3, t3
             );
             expect( // check stake balance
-                (await LSContract.stakes(3)).totalBalance
-            ).to.be.equal(val3);
-
-            expect( // stake 3000 for 4 week
-                await LSContract.connect(u3).stake(3, { value: val3 })
-            ).to.emit(LSContract, "Staked").withArgs(
-                u3.address, 4, val3, t4
-            );
-            expect( // check stake balance
-                (await LSContract.stakes(4)).totalBalance
+                (await LSContract.stakes(u3.address)).totalBalance
             ).to.be.equal(val3);
         });
 
@@ -173,119 +154,78 @@ describe("Liquid staking", function () {
              * 2nd claim after 1 week (mid-term)
              * 3d  claim after 3 week (end-term)
              */
-            const c1 = await LSContract.nowClaimable(0);
+            const c1 = await LSContract.nowClaimable(u1.address);
             expect(
-                await LSContract.connect(u1).claim(0, c1)
+                await LSContract.connect(u1).claim(c1)
             ).to.emit(LSContract, "Claimed").withArgs(
-                u1.address, 0, c1
+                u1.address, c1
             );
-            let userBalance = await nASTRContract.balanceOf(u1.address);
-            expect(userBalance).to.be.equal(c1);
+            expect(
+                await nASTRContract.balanceOf(u1.address)
+            ).to.be.equal(c1);
 
             // @dev +7 days
             await network.provider.send("evm_increaseTime", [3600 * 24 * 7]);
             await network.provider.send("evm_mine");
 
-            const c2 = await LSContract.nowClaimable(1);
+            const c2 = await LSContract.nowClaimable(u2.address);
             expect(
-                await LSContract.connect(u2).claim(1, c2)
+                await LSContract.connect(u2).claim(c2)
             ).to.emit(LSContract, "Claimed").withArgs(
-                u2.address, 1, c2
+                u2.address, c2
             );
-            userBalance = await nASTRContract.balanceOf(u2.address);
-            expect(userBalance).to.be.equal(c2);
+            expect(
+                await nASTRContract.balanceOf(u2.address)
+            ).to.be.equal(c2);
 
             // @dev + 21 days
             await network.provider.send("evm_increaseTime", [3600 * 24 * 14]);
             await network.provider.send("evm_mine");
 
-            const c3 = await LSContract.nowClaimable(2);
+            const c3 = await LSContract.nowClaimable(u3.address);
             expect(
-                await LSContract.connect(u3).claim(2, c3)
+                await LSContract.connect(u3).claim(c3)
             ).to.emit(LSContract, "Claimed").withArgs(
-                u3.address, 2, c3
+                u3.address, c3
             );
-            userBalance = await nASTRContract.balanceOf(u3.address);
-            expect(userBalance).to.be.equal(c3);
+            expect(
+                await nASTRContract.balanceOf(u3.address)
+            ).to.be.equal(c3);
         });
 
-        it("Should redeem ASTR", async function () {
+        it("Should redeem native tokens", async function () {
             const b1 = await nASTRContract.balanceOf(u1.address);
             const b2 = await nASTRContract.balanceOf(u2.address);
             const b3 = await nASTRContract.balanceOf(u3.address);
 
             expect(
-                await LSContract.connect(u1).redeem(0, b1)
+                await LSContract.connect(u1).redeem(b1)
             ).to.emit(LSContract, "Redeemed").withArgs(
-                u1.address, 0, b1
+                u1.address, b1
             );
             expect(
                 await nASTRContract.balanceOf(u1.address)
             ).to.be.equal(0);
 
             expect(
-                await LSContract.connect(u2).redeem(1, b2)
+                await LSContract.connect(u2).redeem(b2)
             ).to.emit(LSContract, "Redeemed").withArgs(
-                u2.address, 1, b2
+                u2.address, b2
             );
             expect(
                 await nASTRContract.balanceOf(u2.address)
             ).to.be.equal(0);
 
             expect(
-                await LSContract.connect(u3).redeem(2, b3)
+                await LSContract.connect(u3).redeem(b3)
             ).to.emit(LSContract, "Redeemed").withArgs(
-                u3.address, 2, b3
+                u3.address, b3
             );
             expect(
                 await nASTRContract.balanceOf(u3.address)
             ).to.be.equal(0);
         });
 
-    });
-
-    // @notice get native tokens in exhange of DNTs
-    describe("Trading", function () {
-        const p1 = ethers.utils.parseEther("1000");
-        const p2 = ethers.utils.parseEther("3000");
-        const p3 = p2.mul(ethers.BigNumber.from(2));
-        it("Should create some sell orders", async function(){
-            expect (
-                await LSContract.connect(u3).createOrder(3, p1)
-            ).to.emit(LSContract, "OrderChange").withArgs(
-                0, u3.address, true, p1
-            );
-
-            expect (
-                await LSContract.connect(u3).createOrder(4, p2)
-            ).to.emit(LSContract, "OrderChange").withArgs(
-                1, u3.address, true, p2
-            );
-        });
-
-        it("Should cancel some orders", async function(){
-            expect (
-                await LSContract.connect(u3).cancelOrder(0)
-            ).to.emit(LSContract, "OrderChange").withArgs(
-                0, u3.address, false, p1
-            );
-        });
-
-        it("Should set order price", async function () {
-            expect (
-                await LSContract.connect(u3).setPrice(1, p3)
-            ).to.emit(LSContract, "OrderChange").withArgs(
-                1, u3.address, true, p3
-            );
-        });
-        
-        it("Should buy some stakes", async function(){
-            expect(
-                await LSContract.buyStake(1, {value: p3})
-            ).to.emit(LSContract, "OrderComplete").withArgs(
-                1, u3.address, owner.address, p3
-            );
-        });
     });
 });
 
