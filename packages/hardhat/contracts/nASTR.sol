@@ -6,6 +6,8 @@
 // - set up upgradability proxy
 // - set up transparent upgradability
 
+// rinkeby addr: 0xb82F0bBd0B3285050529Db3D02E8f2D0D1343E5E
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
