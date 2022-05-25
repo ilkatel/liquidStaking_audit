@@ -6,5 +6,5 @@
 
 // Hardhat dev
 module.exports = [
-  "0xc501c02b668b1d3fe35ff9a52d1d674304ed095f", // DNT distributor contract address (will become the owner)
+  "0x5D5ed321b17EAcDD4D0EaCb957da890b6B6761c0", // DNT distributor contract address (will become the owner)
 ];

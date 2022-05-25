@@ -12,6 +12,8 @@ require("hardhat-gas-reporter");
 require("@nomiclabs/hardhat-ethers");
 require("@nomiclabs/hardhat-etherscan");
 
+require("./tasks/index");
+
 // require('@openzeppelin/hardhat-upgrades');
 
 const { isAddress, getAddress, formatUnits, parseUnits } = utils;
@@ -119,7 +121,7 @@ module.exports = {
 
     // Ethereum
     rinkeby: {
-      url: "https://rinkeby.infura.io/v3/b35f94a90f6d41de8ec8e5d940d32121", // <---- YOUR INFURA ID! (or it won't work)
+      url: "https://rinkeby.infura.io/v3/dc3e97ffb1e04e6ca82541e3611e721b", // <---- YOUR INFURA ID! (or it won't work)
       //    url: "https://speedy-nodes-nyc.moralis.io/XXXXXXXXXXXXXXXXXXXXXXX/eth/rinkeby", // <---- YOUR MORALIS ID! (not limited to infura)
       accounts: {
         mnemonic: mnemonic(),
@@ -331,7 +333,8 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      mainnet: "YHS7JQ2F256U1UZ3SPAKV8GF292WJFB88R",
+      mainnet: "3B47DRRH9XWFZDIGQMCXE1IG2S92IRBD1K",
+      rinkeby: "3B47DRRH9XWFZDIGQMCXE1IG2S92IRBD1K",
       bsc: "I3QBNPKC8WEYN7KVZ25S18433VK2729K8F",
       bscTestnet: "I3QBNPKC8WEYN7KVZ25S18433VK2729K8F",
       // add other network's API key here
