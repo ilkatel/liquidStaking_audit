@@ -1,6 +1,6 @@
 // TODO:
 //
-// - Features: 
+// - Features:
 // - - [ ] commissions
 // - - [ ] another rewards except DNT
 //
@@ -27,7 +27,7 @@ contract LiquidStaking is Ownable {
     // DECLARATIONS
     //
     // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- STAKING SETTINGS 
+    // ------------------------------- STAKING SETTINGS
     // -------------------------------------------------------------------------------------------------------
 
     // @notice        core staking settings
@@ -41,13 +41,13 @@ contract LiquidStaking is Ownable {
     NDistributor   distr;
 
     // @notice    nDistributor required values
-    string public utilName = "LS"; // Liquid Staking utility name
+    string public utilName = "LiquidStaking"; // Liquid Staking utility name
     string public DNTname  = "nASTR"; // DNT name
 
     // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- STAKE MANAGEMENT 
+    // ------------------------------- STAKE MANAGEMENT
     // -------------------------------------------------------------------------------------------------------
-    
+
     // @notice Stake struct & identifier
     struct      Stake {
         uint256 totalBalance;
