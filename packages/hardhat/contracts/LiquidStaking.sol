@@ -1,27 +1,20 @@
-// TODO:
-//
-// - Features:
-// - - [ ] commissions
-// - - [ ] another rewards except DNT
-//
-// - QoL:
-// - - [+] tests
-// - - [+] deployment
-//
-
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "hardhat/console.sol";
+import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
-import "../libs/@openzeppelin/contracts/access/Ownable.sol";
-import "../libs/@openzeppelin/contracts/utils/Counters.sol";
+import "./Staker.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 
 /**
  * @title Liquid staking contract
  */
-contract LiquidStaking is Ownable {
-    using Counters for Counters.Counter;
+contract LiquidStaking is Initializable, AccessControlUpgradeable {
+    using CountersUpgradeable for CountersUpgradeable.Counter;
+    DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);    
 
 
     // DECLARATIONS
@@ -32,192 +25,198 @@ contract LiquidStaking is Ownable {
 
     // @notice        core staking settings
     uint256   public    totalBalance;
-    uint256   public    claimPool;
+    uint256   public    unstakingPool;
     uint256   public    minStake;
-    uint256[] public    tfs; // staking timeframes
 
     // @notice DNT distributor
     address public distrAddr;
     NDistributor   distr;
 
     // @notice    nDistributor required values
-    string public utilName = "LiquidStaking"; // Liquid Staking utility name
-    string public DNTname  = "nASTR"; // DNT name
+    string public utilName; // Liquid Staking utility name
+    string public DNTname; // DNT name
 
-    // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- STAKE MANAGEMENT
-    // -------------------------------------------------------------------------------------------------------
-
-    // @notice Stake struct & identifier
+    // @notice Stake struct
     struct      Stake {
-        uint256 totalBalance;
-        uint256 liquidBalance;
-        uint256 claimable;
-        uint256 rate;
-
-        uint256 startDate;
-        uint256 finDate;
-        uint256 lastUpdate;
+        uint256 eraStaked;
     }
 
-    // @notice Stakes & their IDs
+    // @notice Stakes mapping to user
     mapping(address => Stake) public stakes;
 
-    // @notice staking events
-    event Staked(address indexed who, uint256 amount, uint256 timeframe);
-    event Claimed(address indexed who, uint256 amount);
-    event Redeemed(address indexed who, uint256 amount);
-
-
-    // MODIFIERS
-
-    // @notice updates claimable stake values
-    // @param  [uint256] id => stake ID
-    modifier   updateStake() {
-
-        Stake storage s = stakes[msg.sender];
-
-        if (block.timestamp - s.lastUpdate < 1 days ) {
-            _; // reward update once a day
-        } else {
-            claimPool -= s.claimable; // i am really sorry for this
-            s.claimable = nowClaimable(msg.sender);
-            claimPool += s.claimable; // i mean really
-            s.lastUpdate = block.timestamp;
-            _;
-        }
+    // @notice Withdrawal struct
+    struct Withdrawal {
+        uint256 val;
+        uint256 eraReq;
     }
+    // @notice Withdrawals array mapping to user
+    mapping(address => Withdrawal[]) public withdrawals;
 
+    // @notice eras until withdraw possible
+    uint256   public    withdrawEras;
+    address public stakerAddr;
+    Staker staker;
+    uint256 public rewardsPool;
 
+    bytes32 public constant            STAKER = keccak256("STAKER");
+    bytes32 public constant            ADMIN = keccak256("ADMIN");
+
+    mapping(uint256 => uint256) public eraStaked;
+    mapping(uint256 => uint256) public eraUnstaked;
     // FUNCTIONS
     //
     // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- ADMIN
+    // ------------------------------- INITIALIZER 
     // -------------------------------------------------------------------------------------------------------
-
     // @notice set distributor and DNT addresses, minimum staking amount
     // @param  [address] _distrAddr => DNT distributor address
-    // @param  [uint256] _min => minimum value to stake
-    constructor(address _distrAddr, uint256 _min) {
+    function initialize(address _distrAddr) public initializer {
 
         // @dev set distributor address and contract instance
         distrAddr = _distrAddr;
         distr = NDistributor(distrAddr);
 
-        minStake = _min;
-        tfs.push(7 days);
+        utilName = "LiquidStaking"; // Liquid Staking utility name
+        DNTname  = "nASTR"; // DNT name
+
+        stakerAddr = "/* put deployed staker contract address here */";
+        staker = Staker(stakerAddr);
+
+        minStake = 5 ether;
+        withdrawEras = 10;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN, msg.sender);
+        _grantRole(STAKER, stakerAddr);
     }
 
-    // @notice add new timeframe
-    // @param  [uint256] t => new timeframe value
-    function   addTerm(uint256 t) external onlyOwner {
-        tfs.push(t);
+    function fillRewardsPool() external payable onlyRole(STAKER) { // rewards goes here
+        require(msg.value > 0, "0 value!");
+        rewardsPool += msg.value;
     }
 
-    // @notice change timeframe value
-    // @param  [uint8]   n => timeframe index
-    // @param  [uint256] t => new timeframe value
-    function   changeTerm(uint8 n, uint256 t) external onlyOwner {
-        tfs[n] = t;
+    function fillUnstakingPool() external payable onlyRole(STAKER) { // 10% revenue from staker goes here
+        require(msg.value > 0, "0 value!");
+        unstakingPool += msg.value;
     }
+
+
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- ADMIN
+    // -------------------------------------------------------------------------------------------------------
 
     // @notice set distributor
     // @param  [address] a => new distributor address
-    function   setDistr(address a) external onlyOwner {
+    function   setDistr(address a) external onlyRole(ADMIN) {
         distrAddr = a;
         distr = NDistributor(distrAddr);
     }
 
     // @notice set minimum stake value
     // @param  [uint256] v => new minimum stake value
-    function   setMinStake(uint256 v) external onlyOwner {
+    function   setMinStake(uint256 v) external onlyRole(ADMIN) {
         minStake = v;
     }
 
 
     // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- Stake managment (stake/redeem tokens, claim DNTs)
+    // ------------------------------- VIEWS
+    // -------------------------------------------------------------------------------------------------------
+
+    // @notice returns current era number from DAPPS_STAKING module
+    function   current_era() public view returns(uint256) {
+        return DAPPS_STAKING.read_current_era();
+    }
+
+    // @notice returns apr in %
+    function   get_apr() public view returns(uint256) {
+        uint32 era = uint32(DAPPS_STAKING.read_current_era() - 1);
+        return (DAPPS_STAKING.read_era_staked(era) / DAPPS_STAKING.read_era_reward(era) / 100); // divide total staked by total rewards for prev era
+    }
+
+    // @notice returns user active withdrawals
+    function get_user_withdrawals() public view returns(Withdrawal[] memory) {
+        return withdrawals[msg.sender];
+    }
+
+    function calculate_reward() public view returns (uint256) {
+        uint256 uBalance = distr.getUserDntBalanceInUtil(msg.sender, utilName, DNTname);
+        uint256 part = totalBalance / uBalance / 100; // % of total
+        return rewardsPool / 100 * part; // so user can get equal part of rewards pool
+
+    }
+
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- STAKE
     // -------------------------------------------------------------------------------------------------------
 
     // @notice create new stake with desired timeframe
-    // @param  [uint8]   timeframe => desired timeframe index, chosen from tfs[] array
-    function   stake(uint8 timeframe) external payable {
-		require(msg.value >= minStake, "Value less than minimum stake amount");
-
-        Stake storage s = stakes[msg.sender];
+    function   stake() external payable {
         uint256 val = msg.value;
+		require(val >= minStake, "Value less than minimum stake amount");
 
-        // @dev set user stake data
-        s.totalBalance += val;
-        s.claimable += val / 2;
-        s.rate += val / 2 / tfs[timeframe] / 1 days;
-        s.startDate = s.startDate == 0 ? block.timestamp : s.startDate;
-        s.finDate = s.finDate == 0 ? block.timestamp + tfs[timeframe] : s.finDate + tfs[timeframe];
-        s.lastUpdate = block.timestamp;
+        Stake storage s = stakes[msg.sender];
+        uint256 era = current_era();
 
-        // @dev update global balances and emit event
+        s.eraStaked = s.eraStaked == 0 ? era : s.eraStaked;
+
         totalBalance += val;
-        claimPool += val / 2;
+        eraStaked[era] += val;
 
-        emit Staked(msg.sender, val, tfs[timeframe]);
+        distr.issueDnt(msg.sender, val, utilName, DNTname);
+
+        // send funds to staker
+        payable(stakerAddr).call{value: msg.value};
     }
 
-    // @notice claim available DNT from stake
-    // @param  [uint256] amount => amount of requested DNTs
-    function   claim(uint256 amount) external updateStake {
+    // @notice unstake DNTs to retrieve native tokens from stake
+    // @param  [uint256] amount => amount of tokens to unstake
+    // @param  [bool] immediate => false if call unbond, 'true' not yet implemented
+    function   unstake(uint256 amount, bool immediate) external {
         require(amount > 0, "Invalid amount!");
-
-
-        Stake storage s = stakes[msg.sender];
-        require(s.claimable >= amount, "Invalid amount >= claimable!");
-
-        // @dev update balances
-        s.claimable -= amount;
-        s.liquidBalance += amount;
-        claimPool -= amount;
-
-        // @dev issue DNT and emit event
-        distr.issueDnt(msg.sender, amount, utilName, DNTname);
-
-        emit Claimed(msg.sender, amount);
-    }
-
-    // @notice redeem DNTs to retrieve native tokens from stake
-    // @param  [uint256] amount => amount of tokens to redeem
-    function   redeem(uint256 amount) external {
-        require(amount > 0, "Invalid amount!");
-
-        Stake storage s = stakes[msg.sender];
-        // @dev can redeem only after finDate
-        require(block.timestamp > s.finDate, "Cannot do it yet!");
 
         uint256 uBalance = distr.getUserDntBalanceInUtil(msg.sender, utilName, DNTname);
         require(uBalance >= amount, "Insuffisient DNT balance!");
-        s.totalBalance -= amount;
-        s.liquidBalance -= amount;
         totalBalance -= amount;
+        eraUnstaked[current_era()] += amount;
 
-        // @dev burn DNT, send native token, emit event
-        distr.removeDnt(msg.sender, amount, utilName, DNTname);
-        payable(msg.sender).call{value: amount};
-
-        emit Redeemed(msg.sender, amount);
+        if (immediate) {
+            unstakingPool -= amount;
+            uint256 coms = amount / 100; // 1% immedieate coms
+            payable(msg.sender).call{value: amount - coms};
+        }else {
+            withdrawals[msg.sender].push(Withdrawal({
+                val: amount,
+                eraReq: current_era()
+            }));
+        }
     }
 
-    // @notice returns the amount of DNTs available for claiming right now
-    // @param  [uint256] id => stake ID
-    // @return [uint256] amount => amount of claimable DNT right now
-    function   nowClaimable(address u) public view returns (uint256 amount) {
 
-        Stake memory s = stakes[u];
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- CLAIM
+    // -------------------------------------------------------------------------------------------------------
 
-        if ( block.timestamp >= s.finDate) { // @dev if finDate already passed we can claim the rest
-            amount = s.totalBalance - s.liquidBalance;
-        } else if (block.timestamp - s.lastUpdate < 1 days) { // @dev don't change value if less than 1 day passed
-            amount = s.claimable;
-        } else { // @dev add claimable based on the amount of days passed
-            uint256 d = (block.timestamp - s.lastUpdate) / 1 days;
-            amount = s.claimable + s.rate * d;
-        }
+    // @notice claim user rewards
+    function claim_user() external {
+        uint256 reward = calculate_reward();
+        require(rewardsPool >= reward, "Rewards pool has less liquidity!");
+        rewardsPool -= reward;
+        payable(msg.sender).call{value: reward};
+
+    }
+    
+
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- WITHDRAW
+    // -------------------------------------------------------------------------------------------------------
+    
+    // @notice withdraw unbonded
+    function withdraw(uint id) external {
+        Withdrawal storage w = withdrawals[msg.sender][id]; 
+        require(current_era() - w.eraReq > withdrawEras, "Not enough eras passed!");
+        unstakingPool -= w.val;
+        w.eraReq = 0;
+        distr.removeDnt(msg.sender, w.val, utilName, DNTname);
+        payable(msg.sender).call{value: w.val};
     }
 }
