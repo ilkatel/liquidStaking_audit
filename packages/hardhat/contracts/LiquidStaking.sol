@@ -48,6 +48,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     mapping(uint256 => eraData) public eraStakerReward; // total staker rewards per era
     mapping(uint256 => eraData) public eraDappReward; // total dapp rewards per era
     mapping(uint256 => eraData) public eraRevenue; // total revenue per era
+    uint256 unbondedPool;
 
     function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -58,7 +59,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
         DNTname = "nASTR";
         utilName = "LiquidStaking";
-        DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination.FreeBalance);
     }
 
 
@@ -128,7 +128,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         uint256 p = address(this).balance;
         DAPPS_STAKING.withdraw_unbonded();
         uint256 a = address(this).balance;
-        unstakingPool += a - p;
+        unbondedPool += a - p;
     }
 
     function claim_dapp(uint256 _era) external {
@@ -226,10 +226,12 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function withdraw(uint256 _id) external {
         Withdrawal storage w = withdrawals[msg.sender][_id];
         uint256 val = w.val;
+        uint256 era = current_era();
 
-        require(current_era() - w.eraReq >= withdrawBlock, "Not enough eras passed!");
-        require(unstakingPool >= val, "Unstaking pool drained!");
+        require(era - w.eraReq >= withdrawBlock, "Not enough eras passed!");
+        require(unbondedPool >= val, "Unbonded pool drained!");
 
+        unbondedPool -= val;
         w.eraReq = 0;
 
         distr.removeDnt(msg.sender, val, utilName, DNTname);
