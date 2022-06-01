@@ -68,10 +68,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         distr = NDistributor(distrAddr);
     }
 
-    function set_min(uint256 _val) public onlyRole(MANAGER) {
-        minStake = _val;
-    }
-
 
     // VIEWS
 
@@ -97,7 +93,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     function   get_apr() public view returns(uint256) {
         uint32 era = uint32(DAPPS_STAKING.read_current_era() - 1);
-        return (DAPPS_STAKING.read_era_staked(era) / DAPPS_STAKING.read_era_reward(era) / 100); // divide total staked by total rewards for prev era
+        return ((DAPPS_STAKING.read_era_reward(era) * 100) / DAPPS_STAKING.read_era_staked(era)); // divide total staked by total rewards for prev era
     }
 
     // GLOBAL FUNCS
@@ -174,7 +170,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         uint256 era = current_era();
         uint256 val = msg.value;
 
-        require(val >= minStake, "Send at least min stake value!");
 
         totalBalance += val;
         eraStaked[era].val += val;
