@@ -84,6 +84,16 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         return eraStakerReward[_era].val / 100 * share;
     }
 
+    // @notice returns user active withdrawals
+    function get_user_withdrawals() public view returns(Withdrawal[] memory) {
+        return withdrawals[msg.sender];
+    }
+
+    function   get_apr() public view returns(uint256) {
+        uint32 era = uint32(DAPPS_STAKING.read_current_era() - 1);
+        return (DAPPS_STAKING.read_era_staked(era) / DAPPS_STAKING.read_era_reward(era) / 100); // divide total staked by total rewards for prev era
+    }
+
     // GLOBAL FUNCS
     // @dev stake for given era
     function global_stake(uint256 _era) external {
