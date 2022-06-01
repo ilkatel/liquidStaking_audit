@@ -6,19 +6,16 @@ import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.so
 import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
-/*
-inside one era:
-staker/dapp rewards claimed
-pools filled
-stakes/unstakes accepted
-bond/unbond called
-*/
+
+//shibuya: 0xD9E81aDADAd5f0a0B59b1a70e0b0118B85E2E2d3
 contract LiquidStaking is Initializable, AccessControlUpgradeable {
     DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);    
     bytes32 public constant            MANAGER = keccak256("MANAGER");
 
-    string public utilName;
-    string public DNTname;
+    string public utilName; // LiquidStaking
+    string public DNTname; // nASTR
+
+    uint256 public totalBalance;
     uint256 public minStake;
     uint256 public withdrawBlock;
 
@@ -27,6 +24,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     address public distrAddr;
     NDistributor   distr;
+
+    mapping(address => mapping(uint256 => bool)) public userClaimed;
 
     struct Stake {
         uint256 totalBalance;
@@ -59,7 +58,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
         DNTname = "nASTR";
         utilName = "LiquidStaking";
-        //DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination.FreeBalance);
+        DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination.FreeBalance);
     }
 
 
@@ -73,10 +72,17 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         minStake = _val;
     }
 
+
+    // VIEWS
+
     function current_era() public view returns(uint256) {
         return DAPPS_STAKING.read_current_era();
     }
 
+    function user_reward(uint256 _era) public view returns (uint256) {
+        uint256 share = totalBalance / stakes[msg.sender].totalBalance / 100; // user share in %
+        return eraStakerReward[_era].val / 100 * share;
+    }
 
     // GLOBAL FUNCS
     // @dev stake for given era
@@ -112,27 +118,36 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function claim_dapp(uint256 _era) external {
         require(current_era() != _era, "Cannot claim yet!");
         require(eraDappReward[_era].val == 0, "Already claimed!");
+
         uint256 p = address(this).balance;
         DAPPS_STAKING.claim_dapp(address(this), uint128(_era));
         uint256 a = address(this).balance;
-        eraDappReward[_era].val = a - p;
-        eraRevenue[_era].val += eraDappReward[_era].val / 100 * 10; // 10% goes to revenue pool
+
+        uint256 coms = (a - p) / 10; // 10% goes to revenue pool
+
+        eraDappReward[_era].val = a - p - coms;
+        eraRevenue[_era].val += coms;
     }
 
     function claim_user(uint256 _era) external {
         uint256 p = address(this).balance;
         DAPPS_STAKING.claim_staker(address(this));
         uint256 a = address(this).balance;
-        eraStakerReward[_era].val = a - p;
-        eraRevenue[_era].val += eraStakerReward[_era].val / 100; // 1% goes to revenue pool
+
+        uint256 coms = (a - p) / 100; // 1% comission to revenue pool
+
+        eraStakerReward[_era].val = a - p - coms;
+        eraRevenue[_era].val += coms;
     }
 
     function fill_pools(uint256 _era) external {
         require(!eraRevenue[_era].done, "Already done!");
         require(!eraStakerReward[_era].done, "Already done!");
+
         eraRevenue[_era].done = true;
         eraStakerReward[_era].done = true;
-        unstakingPool += eraRevenue[_era].val / 100 * 10; // 10% of revenue goes to unstaking pool
+
+        unstakingPool += eraRevenue[_era].val / 10; // 10% of revenue goes to unstaking pool
         rewardPool += eraStakerReward[_era].val;
     }
 
@@ -141,14 +156,17 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function stake() external payable {
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
+        uint256 val = msg.value;
 
-        require(msg.value > minStake, "Send at least min stake value!");
+        require(val >= minStake, "Send at least min stake value!");
 
-        eraStaked[era].val += msg.value;
+        totalBalance += val;
+        eraStaked[era].val += val;
 
-        s.totalBalance += msg.value;
+        s.totalBalance += val;
         s.eraStarted = s.eraStarted == 0 ? era : s.eraStarted;
-        distr.issueDnt(msg.sender, msg.value, utilName, DNTname);
+
+        distr.issueDnt(msg.sender, val, utilName, DNTname);
     }
 
     function unstake(uint256 _amount, bool _immediate) external {
@@ -159,14 +177,17 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
         eraUnstaked[era].val += _amount;
 
+        totalBalance -= _amount;
         s.totalBalance -= _amount;
         if(s.totalBalance == 0) {
             s.eraStarted = 0;
         }
 
         if (_immediate) {
+            require(unstakingPool >= _amount, "Unstaking pool drained!");
             uint256 fee = _amount / 100; // 1% immediate unstaking fee
             eraRevenue[era].val += fee;
+            unstakingPool -= _amount;
             distr.removeDnt(msg.sender, _amount, utilName, DNTname);
             payable(msg.sender).call{value: _amount - fee};
         } else {
@@ -177,10 +198,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
     }
 
-    function claim() external {
-        /* 
-        send reward to user from rewards pool according to their share
-        */
+    function claim(uint256 _era) external {
+        require(!userClaimed[msg.sender][_era], "Already claimed!");
+        userClaimed[msg.sender][_era] = true;
+        uint256 reward = user_reward(_era);
+        require(rewardPool >= reward, "Rewards pool drained!");
+        rewardPool -= reward;
+        payable(msg.sender).call{value: reward};
     }
 
     function withdraw(uint256 _id) external {
