@@ -80,8 +80,14 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     function user_reward(uint256 _era) public view returns (uint256) {
-        uint256 share = totalBalance / stakes[msg.sender].totalBalance / 100; // user share in %
-        return eraStakerReward[_era].val / 100 * share;
+        uint256 r = eraStakerReward[_era].val; // era reward
+        uint256 b = stakes[msg.sender].totalBalance * 10**18; // user staked
+        if(r == 0) {
+            return 0;
+        } else {
+            uint256 share =  b / totalBalance;  // user share in %
+            return (r * share) / 10**18; // dear lord please forgive me
+        }
     }
 
     // @notice returns user active withdrawals
