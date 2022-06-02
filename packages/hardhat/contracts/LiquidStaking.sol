@@ -2,8 +2,8 @@
 
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
 
@@ -57,7 +57,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // Reward handlers
     mapping (address => uint) public rewardsByAddress;
-    rewardsByAddress[] public stakers;
+    address[] public stakers;
     address public dntToken;
 
     function initialize() public initializer {
@@ -108,6 +108,10 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             uint256 share =  b / totalBalance;  // user share in %
             return (r * share) / 10 ** 9; // dear lord please forgive me
         }
+    }
+
+    function get_stakers() public view returns(address[] memory) {
+        return stakers;
     }
 
     // @notice returns user active withdrawals
@@ -270,7 +274,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     function claim(uint _amount) external updateAll {
         require(rewardPool >= _amount, "Rewards pool drained!");
-        require(rewardsByAddress[msg.sender] >= _amount, "> Not enough rewards!")
+        require(rewardsByAddress[msg.sender] >= _amount, "> Not enough rewards!");
         rewardPool -= _amount;
         rewardsByAddress[msg.sender] -= _amount;
         payable(msg.sender).transfer(_amount);
