@@ -45,14 +45,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts/access/AccessControl.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/IDNT.sol";
 
 
 /*
  * @notice ERC20 DNT token distributor contract
  */
-contract NDistributor is AccessControl {
+contract NDistributor is Initializable, AccessControlUpgradeable {
 
     // MODIFIERS
     //
@@ -173,7 +174,7 @@ contract NDistributor is AccessControl {
     // ------------------------------- Constructor
     // -------------------------------------------------------------------------------------------------------
 
-    constructor() {
+    function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         owner = msg.sender;
 
@@ -182,10 +183,8 @@ contract NDistributor is AccessControl {
         utilityId["null"] = 1;
         utilities.push("null");
         dntDB.push(Dnt("empty", false));
+
     }
-
-
-
 
 
     // -------------------------------------------------------------------------------------------------------
@@ -528,7 +527,7 @@ contract NDistributor is AccessControl {
     }
 
   // @notice                           overrides required by Solidity
-  function                             supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
+  function                             supportsInterface(bytes4 interfaceId) public view override(AccessControlUpgradeable) returns (bool) {
       return super.supportsInterface(interfaceId);
   }
 }
