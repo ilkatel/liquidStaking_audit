@@ -2,14 +2,14 @@
 
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
 import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
 
 //shibuya: 0xD9E81aDADAd5f0a0B59b1a70e0b0118B85E2E2d3
 contract LiquidStaking is Initializable, AccessControlUpgradeable {
-    DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);    
+    DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);
     bytes32 public constant            MANAGER = keccak256("MANAGER");
 
     string public utilName; // LiquidStaking
@@ -55,6 +55,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     uint256 public lastUpdated; // last era updated everything
 
+    // Reward handlers
+    mapping (address => uint) public rewardsByAddress;
+    rewardsByAddress[] public stakers;
+    address public dntToken;
+
     function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER, msg.sender);
@@ -81,6 +86,10 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     function set_last(uint256 _val) public onlyRole(MANAGER) {
         lastUpdated = _val;
+    }
+
+    function set_dntToken(address _address) public onlyRole(MANAGER) {
+        dntToken = _address;
     }
 
 
@@ -163,8 +172,23 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
         uint256 coms = (a - p) / 100; // 1% comission to revenue pool
 
-        eraStakerReward[_era].val = a - p - coms;
+        eraStakerReward[_era].val = a - p - coms; // rewards to share between users
         eraRevenue[_era].val += coms;
+
+        uint length = stakers.length;
+        // iter on each staker and give him some rewards
+        for (uint i; i < length;) {
+            address stakerAddr = stakers[i];
+            uint stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
+            rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * stakerDntBalance / totalBalance;
+            unchecked { ++i; }
+        }
+    }
+
+    function addStaker(address _addr) public {
+        require(msg.sender == dntToken && msg.sender != address(0), "> Only available for token contract!");
+        rewardsByAddress[_addr] = 0;
+        stakers.push(_addr);
     }
 
     function fill_pools(uint256 _era) public {
@@ -235,13 +259,21 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
     }
 
-    function claim(uint256 _era) external updateAll {
-        require(!userClaimed[msg.sender][_era], "Already claimed!");
-        userClaimed[msg.sender][_era] = true;
-        uint256 reward = user_reward(_era);
-        require(rewardPool >= reward, "Rewards pool drained!");
-        rewardPool -= reward;
-        payable(msg.sender).transfer(reward);
+    // function claim(uint256 _era) external updateAll {
+    //     require(!userClaimed[msg.sender][_era], "Already claimed!");
+    //     userClaimed[msg.sender][_era] = true;
+    //     uint256 reward = user_reward(_era);
+    //     require(rewardPool >= reward, "Rewards pool drained!");
+    //     rewardPool -= reward;
+    //     payable(msg.sender).transfer(reward);
+    // }
+
+    function claim(uint _amount) external updateAll {
+        require(rewardPool >= _amount, "Rewards pool drained!");
+        require(rewardsByAddress[msg.sender] >= _amount, "> Not enough rewards!")
+        rewardPool -= _amount;
+        rewardsByAddress[msg.sender] -= _amount;
+        payable(msg.sender).transfer(_amount);
     }
 
     function withdraw(uint256 _id) external updateAll {
