@@ -190,7 +190,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
 
     // USER FUNCS
-    function stake() external payable {
+    function stake() external payable updateAll {
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
         uint256 val = msg.value;
@@ -205,7 +205,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         distr.issueDnt(msg.sender, val, utilName, DNTname);
     }
 
-    function unstake(uint256 _amount, bool _immediate) external {
+    function unstake(uint256 _amount, bool _immediate) external updateAll {
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
         require(_amount > 0, "Invalid amount!");
@@ -235,7 +235,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
     }
 
-    function claim(uint256 _era) external {
+    function claim(uint256 _era) external updateAll {
         require(!userClaimed[msg.sender][_era], "Already claimed!");
         userClaimed[msg.sender][_era] = true;
         uint256 reward = user_reward(_era);
@@ -244,7 +244,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         payable(msg.sender).transfer(reward);
     }
 
-    function withdraw(uint256 _id) external {
+    function withdraw(uint256 _id) external updateAll {
         Withdrawal storage w = withdrawals[msg.sender][_id];
         uint256 val = w.val;
         uint256 era = current_era();
@@ -256,10 +256,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         w.eraReq = 0;
 
         payable(msg.sender).transfer(val);
-    }
-
-    function checker() public updateAll {
-
     }
 
     modifier updateAll {
