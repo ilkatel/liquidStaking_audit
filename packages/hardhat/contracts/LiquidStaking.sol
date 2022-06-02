@@ -111,6 +111,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     function get_stakers() public view returns(address[] memory) {
+        require(msg.sender == dntToken && msg.sender != address(0), "> Only available for token contract!");
         return stakers;
     }
 
@@ -119,7 +120,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         return withdrawals[msg.sender];
     }
 
-    function   get_apr() public view returns(uint256) {
+    function get_apr() public view returns(uint256) {
         uint32 era = uint32(DAPPS_STAKING.read_current_era() - 1);
         return ((DAPPS_STAKING.read_era_reward(era) * 100) / DAPPS_STAKING.read_era_staked(era)); // divide total staked by total rewards for prev era
     }
