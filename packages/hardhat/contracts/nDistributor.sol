@@ -479,7 +479,7 @@ contract NDistributor is AccessControl {
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
 
         removeDnt(_from, _amount, _utility, _dnt);
-        issueDnt(_to, _amount, "null", _dnt);
+        issueDnt(_to, _amount, "LiquidStaking", _dnt);
     }
 
     // @notice                         allows to set a utility to free tokens (marked with null utility)

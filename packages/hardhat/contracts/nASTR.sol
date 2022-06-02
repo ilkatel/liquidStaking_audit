@@ -18,6 +18,15 @@ import "../libs/@openzeppelin/contracts/access/Ownable.sol";
 import "../libs/@openzeppelin/contracts/security/Pausable.sol";
 import "../libs/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 
+interface INDistributor {
+    function transferDnt(address, address, uint256, string memory, string memory) external;
+}
+
+interface ILiquidStaking {
+    function addStaker(address) external;
+    function get_stakers() external view returns(address[] memory);
+}
+
 /*
  * @notice nALGM ERC20 DNT token contract
  *
@@ -33,10 +42,15 @@ import "../libs/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit
  */
 contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit {
 
+    INDistributor distributor;
+    ILiquidStaking liquidStaking;
+
     // @notice      contract constructor
     // @param       [address] _distributor => DNT distributor contract address (will become the owner)
-    constructor(address _distributor) ERC20("ASTR Note", "nASTR") ERC20Permit("ASTR Note") {
+    constructor(address _distributor, address _liquidStaking) ERC20("ASTR Note", "nASTR") ERC20Permit("ASTR Note") {
         transferOwnership(_distributor);
+        distributor = INDistributor(_distributor);
+        liquidStaking = ILiquidStaking(_liquidStaking);
     }
 
     // @param       issue DNT token
@@ -78,5 +92,25 @@ contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20P
         override(ERC20, ERC20Snapshot)
     {
         super._beforeTokenTransfer(from, to, amount);
+    }
+
+    function transfer(address _to, uint256 _amount) override public returns (bool) {
+        address owner = _msgSender();
+        distributor.transferDnt(owner, _to, _amount, "LiquidStaking", "nASTR");
+        // check if recepient in rewards list and add him if not
+        address[] memory stakers = liquidStaking.get_stakers();
+        bool recepientStaker;
+        uint length = stakers.length;
+        for (uint i; i < length;) {
+            if (stakers[i] == _to) {
+                recepientStaker = true;
+                break;
+            }
+            unchecked { ++i; }
+        }
+        if (!recepientStaker) {
+            liquidStaking.addStaker(_to);
+        }
+        return true;
     }
 }
