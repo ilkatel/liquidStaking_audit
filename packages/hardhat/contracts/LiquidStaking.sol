@@ -57,6 +57,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // Reward handlers
     mapping (address => uint) public rewardsByAddress;
+    mapping (address => bool) public isStaker;
     address[] public stakers;
     address public dntToken;
 
@@ -230,6 +231,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
         s.totalBalance += val;
         s.eraStarted = s.eraStarted == 0 ? era : s.eraStarted;
+
+        if (!isStaker[msg.sender]) {
+            isStaker[msg.sender] = true;
+            stakers.push(msg.sender);
+        }
 
         distr.issueDnt(msg.sender, val, utilName, DNTname);
     }

@@ -24,7 +24,7 @@ interface INDistributor {
 
 interface ILiquidStaking {
     function addStaker(address) external;
-    function get_stakers() external view returns(address[] memory);
+    function isStaker(address) external view returns(bool);
 }
 
 /*
@@ -97,18 +97,7 @@ contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20P
     function transfer(address _to, uint256 _amount) override public returns (bool) {
         address owner = _msgSender();
         distributor.transferDnt(owner, _to, _amount, "LiquidStaking", "nASTR");
-        // check if recepient in rewards list and add him if not
-        address[] memory stakers = liquidStaking.get_stakers();
-        bool recepientStaker;
-        uint length = stakers.length;
-        for (uint i; i < length;) {
-            if (stakers[i] == _to) {
-                recepientStaker = true;
-                break;
-            }
-            unchecked { ++i; }
-        }
-        if (!recepientStaker) {
+        if (!liquidStaking.isStaker(_to)) {
             liquidStaking.addStaker(_to);
         }
         return true;
