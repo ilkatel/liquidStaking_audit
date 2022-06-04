@@ -186,7 +186,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         for (uint i; i < length;) {
             address stakerAddr = stakers[i];
             uint stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
-            stakerDntBalance > 0 ? stakerDntBalance : 1; // so that rewards are not reset
             rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * stakerDntBalance / totalBalance;
             unchecked { ++i; }
         }
