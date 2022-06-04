@@ -57,9 +57,9 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // Reward handlers
     mapping (address => uint) public rewardsByAddress;
-    mapping (address => bool) public isStaker;
     address[] public stakers;
     address public dntToken;
+    mapping (address => bool) public isStaker;
 
     function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -302,6 +302,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     modifier updateAll {
+        _;
+        /*
         uint256 era = current_era() - 1; // last era need to update
         uint256 eradiff = era - lastUpdated;
 
@@ -315,5 +317,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             lastUpdated = era;
         }
         _;
+        */
     }
 }
