@@ -186,13 +186,14 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         for (uint i; i < length;) {
             address stakerAddr = stakers[i];
             uint stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
+            stakerDntBalance > 0 ? stakerDntBalance : 1; // so that rewards are not reset
             rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * stakerDntBalance / totalBalance;
             unchecked { ++i; }
         }
     }
 
     function addStaker(address _addr) public {
-        require(msg.sender == dntToken && msg.sender != address(0), "> Only available for token contract!");
+        require(msg.sender == dntToken, "> Only available for token contract!");
         rewardsByAddress[_addr] = 0;
         stakers.push(_addr);
     }
@@ -241,16 +242,24 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     function unstake(uint256 _amount, bool _immediate) external updateAll {
+        uint userDntBalance = distr.getUserDntBalanceInUtil(msg.sender, utilName, DNTname);
+        // check if user have enough nTokens
+        require(userDntBalance >= _amount, "> Not enough nASTR!");
+        require(_amount > 0, "Invalid amount!");
+
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
-        require(_amount > 0, "Invalid amount!");
-        require(s.totalBalance >= _amount, "Invalid amount!");
-
         eraUnstaked[era].val += _amount;
 
         totalBalance -= _amount;
-        s.totalBalance -= _amount;
-        if(s.totalBalance == 0) {
+
+        // check current stake balance of user
+        // set it zero if not enough
+        // reduce else
+        if (s.totalBalance >= _amount) {
+            s.totalBalance -= _amount;
+        } else {
+            s.totalBalance = 0;
             s.eraStarted = 0;
         }
 
