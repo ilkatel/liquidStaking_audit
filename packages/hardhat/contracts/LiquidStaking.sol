@@ -224,7 +224,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // ------------------ MISC
     // -----------------------
     function addStaker(address _addr) public {
-        require(msg.sender == dntToken, "> Only available for token contract!");
+        require(msg.sender == distrAddr, "> Only available for token contract!");
         uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, utilName, DNTname);
         stakes[msg.sender].totalBalance = stakerDntBalance;
         rewardsByAddress[_addr] = 0;
