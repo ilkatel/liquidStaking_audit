@@ -64,6 +64,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint256 public lastStaked;
     uint256 public lastUnstaked;
 
+    mapping (address => uint) private shadowTokensAmount;
+
 
     // ------------------ INIT
     // -----------------------
@@ -78,7 +80,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     function setup() external onlyRole(MANAGER) {
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
-        DNTname = "nASTR";
+        DNTname = "nSBY";
         utilName = "LiquidStaking";
     }
 
@@ -141,7 +143,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         /*
         for (uint256 i = lastStaked + 1; i <= _era;) {
             //sum2stake += uint128(eraStaked[i].val);
-
             unchecked { ++i; }
         }
         */
@@ -173,10 +174,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         for (uint256 i = lastUnstaked + 1; i <= _era;) {
             eraUnstaked[i].done = true;
             sum2unstake += uint128(eraUnstaked[i].val);
-
             unchecked { ++i; }
         }
-
         if(sum2unstake != 0) {
             lastUnstaked = _era;
         }
@@ -215,8 +214,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         for (uint i; i < length;) {
             address stakerAddr = stakers[i];
             uint stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
-            rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * stakerDntBalance / totalBalance;
-            stakes[stakerAddr].totalBalance = stakerDntBalance;
+            rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * (stakerDntBalance + shadowTokensAmount[stakerAddr]) / totalBalance;
             unchecked { ++i; }
         }
     }
@@ -231,6 +229,16 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         stakes[msg.sender].totalBalance = stakerDntBalance;
         rewardsByAddress[_addr] = 0;
         stakers.push(_addr);
+    }
+
+    function mintShadowTokens(address _user, uint _amount) public {
+        require(msg.sender == distrAddr, "Not available");
+        shadowTokensAmount[_user] += _amount;
+    }
+
+    function burnShadowTokens(address _user, uint _amount) public {
+        require(msg.sender == distrAddr, "Not available");
+        shadowTokensAmount[_user] -= _amount;
     }
 
     function fill_pools(uint256 _era) public {
@@ -352,15 +360,12 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         /*
         require(current_era() != _era, "Cannot claim yet!");
         require(eraDappReward[_era].val == 0, "Already claimed!");
-
         uint256 p = address(proxyAddr).balance;
         */
         DAPPS_STAKING.claim_dapp(proxyAddr, uint128(_era));
         /*
         uint256 a = address(proxyAddr).balance;
-
         uint256 coms = (a - p) / 10; // 10% goes to revenue pool
-
         eraDappReward[_era].val = a - p - coms;
         eraRevenue[_era].val += coms;
         */

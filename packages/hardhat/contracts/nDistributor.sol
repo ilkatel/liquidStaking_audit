@@ -12,6 +12,13 @@ import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.so
 import "./interfaces/IDNT.sol";
 
 
+interface ILiquidStaking {
+    function addStaker(address) external;
+    function isStaker(address) external view returns(bool);
+    function mintShadowTokens(address, uint) external;
+    function burnShadowTokens(address, uint) external;
+}
+
 /*
  * @notice ERC20 DNT token distributor contract
  */
@@ -127,6 +134,8 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
     // @notice                         manager contract role
     bytes32 public constant            MANAGER = keccak256("MANAGER");
 
+    ILiquidStaking liquidStaking;
+    mapping (address => bool) private isPool;
 
 
 
@@ -435,14 +444,19 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
                                                    address _to,
                                                    uint256 _amount,
                                                    string memory _utility,
-                                                   string memory _dnt) public onlyRole(MANAGER) dntInterface(_dnt) {
+                                                   string memory _dnt) public onlyRole(MANAGER) {
 
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
-
-        DNTContract.approve(_from, _amount);
-        _reassignDntToUser(_from, _to, _amount, _utility, "LiquidStaking", _dnt);
-        DNTContract.transferFrom(_from, _to, _amount);
-
+        if (!isPool[_to] && !liquidStaking.isStaker(_to)) {
+            liquidStaking.addStaker(_to);
+        }
+        if (isPool[_to]) {
+            liquidStaking.mintShadowTokens(_from, _amount);
+        } else if (isPool[_from]) {
+            liquidStaking.burnShadowTokens(_to, _amount);
+        }
+        removeDnt(_from, _amount, _utility, _dnt);
+        issueDnt(_to, _amount, "LiquidStaking", _dnt);
     }
 
     // @notice                         allows to set a utility to free tokens (marked with null utility)
@@ -531,5 +545,15 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
   // @notice                           overrides required by Solidity
    function                             supportsInterface(bytes4 interfaceId) public view override(AccessControlUpgradeable) returns (bool) {
        return super.supportsInterface(interfaceId);
+   }
+
+   // @notice                           sets Liquid Staking contract
+   function                             setLiquidStaking(address _liquidStaking) external onlyRole(DEFAULT_ADMIN_ROLE) {
+       liquidStaking = ILiquidStaking(_liquidStaking);
+   }
+
+   // @notice                           add pool address to list of pools
+   function                             addPool(address _pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+       isPool[_pool] = true;
    }
 }
