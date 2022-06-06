@@ -1,41 +1,3 @@
-//TODO:
-//
-// - User structure — should describe the "vault" of the user — keep track of his assets and utils [+]
-//
-// - Write getter functions to read info about user vaults (users mapping) [+]
-// - Get user DNTs [+]
-// - Get user utils [+]
-// - Get user DNT in util [+]
-// - Get user liquid DNT [+]
-// - Get user utils in dnt [+]
-//
-// - Add DNT balance getter function for user from DNT contract [+]
-// - DNT removal (burn) logic [+]
-// - Token transfer logic (should keep track of user utils) [+]
-// - Implement NULL util logic [+]
-// - Assign util tokens to NULL [+]
-// - Proper NULL utill tracking for getters [+]
-// - Implement all checks (correct util, dnt, is util active) [+]
-// - Manage contract permissions via access control
-//     - add contract roles [+]
-//     - add role managment functions [+]
-//          - change owner
-//          - add manager
-//          - remove manager
-//          - change manager
-//
-// - Make universal DNT interface [+]
-//     - setInterface
-//     - mint
-//     - burn
-//     - balance
-//     - transfer
-//
-// - Add the rest of the DNT token functions (pause, snapshot, etc) to interface [+]
-// - Add those functions to distributor [+]
-// - Add events
-
-
 // SET-UP:
 // 1. Deploy nDistributor
 // 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
@@ -473,12 +435,14 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
                                                    address _to,
                                                    uint256 _amount,
                                                    string memory _utility,
-                                                   string memory _dnt) public onlyRole(MANAGER) {
+                                                   string memory _dnt) public onlyRole(MANAGER) dntInterface(_dnt) {
 
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
 
-        removeDnt(_from, _amount, _utility, _dnt);
-        issueDnt(_to, _amount, "LiquidStaking", _dnt);
+        DNTContract.approve(_from, _amount);
+        _reassignDntToUser(_from, _to, _amount, _utility, "LiquidStaking", _dnt);
+        DNTContract.transferFrom(_from, _to, _amount);
+
     }
 
     // @notice                         allows to set a utility to free tokens (marked with null utility)
@@ -495,8 +459,46 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
       require(utilityDB[utilityId[_newUtility]].isActive == true, "Invalid utility!");
       require(users[_user].dnt[_dnt].dntInUtil["null"] >= _amount, "Not enough free tokens!");
 
-      removeDnt(_user, _amount, "null", _dnt);
-      issueDnt(_user, _amount, _newUtility, _dnt);
+      _reassignDntToUser(_user, _user, _amount, "null",  _newUtility, _dnt);
+    }
+
+    // @notice                         reassignes DNT tokens from one user to another
+    // @param                          [address] _from => address to remove tokens from
+    // @param                          [address] _to => address to add tokens to
+    // @param                          [uint256] _amount => amount of tokens to reassign
+    // @param                          [string] _utilityFrom => DNT utility to reassign from
+    // @param                          [string] _utilityTo => DNT utility to reassign to
+    // @param                          [string] _dnt => DNT token
+    function                           _reassignDntToUser(address _from,
+                                                          address _to,
+                                                          uint256 _amount,
+                                                          string memory _utilityFrom,
+                                                          string memory _utilityTo,
+                                                          string memory _dnt) internal onlyRole(MANAGER) dntInterface(_dnt) {
+
+        require(utilityDB[utilityId[_utilityFrom]].isActive == true, "Invalid utility!");
+        require(utilityDB[utilityId[_utilityTo]].isActive == true, "Invalid utility!");
+
+        // remove tokens from user one
+        require(users[_from].dnt[_dnt].dntInUtil[_utilityFrom] >= _amount, "Not enough DNT in utility!");
+        require(users[_from].dnt[_dnt].dntLiquid >= _amount, "Not enough liquid DNT!");
+        users[_from].dnt[_dnt].dntInUtil[_utilityFrom] -= _amount;
+        users[_from].dnt[_dnt].dntLiquid -= _amount;
+        if (users[_from].dnt[_dnt].dntInUtil[_utilityFrom] == 0) {
+            _removeUtilityFromUser(_utilityFrom, users[_from].userUtilities);
+            _removeUtilityFromUser(_utilityFrom, users[_from].dnt[_dnt].userUtils);
+        }
+        if (users[_from].dnt[_dnt].dntLiquid == 0) {
+            _removeDntFromUser(_dnt, users[_from].userDnts);
+        }
+
+        // add tokens to user two
+        _addDntToUser(_dnt, users[_to].userDnts);
+        _addUtilityToUser(_utilityTo, users[_to].userUtilities);
+        _addUtilityToUser(_utilityTo, users[_to].dnt[_dnt].userUtils);
+        users[_to].dnt[_dnt].dntInUtil[_utilityTo] += _amount;
+        users[_to].dnt[_dnt].dntLiquid += _amount;
+
     }
 
 
@@ -527,7 +529,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
     }
 
   // @notice                           overrides required by Solidity
-  function                             supportsInterface(bytes4 interfaceId) public view override(AccessControlUpgradeable) returns (bool) {
-      return super.supportsInterface(interfaceId);
-  }
+   function                             supportsInterface(bytes4 interfaceId) public view override(AccessControlUpgradeable) returns (bool) {
+       return super.supportsInterface(interfaceId);
+   }
 }
