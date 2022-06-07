@@ -12,33 +12,40 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);
     bytes32 public constant            MANAGER = keccak256("MANAGER");
 
-    string public utilName; // LiquidStaking
-    string public DNTname; // nASTR
+    // @notice settings for distributor
+    string public utilName;
+    string public DNTname;
 
+    // @notice core values
     uint256 public totalBalance;
-    uint256 public minStake;
+    uint256 public minStake; // remove when next proxy deployed
     uint256 public withdrawBlock;
 
+    // @notice 
     uint256 public unstakingPool;
     uint256 public rewardPool;
 
+    // @notice distributor data
     address public distrAddr;
     NDistributor   distr;
 
-    mapping(address => mapping(uint256 => bool)) public userClaimed;
+    mapping(address => mapping(uint256 => bool)) public userClaimed; // remove when next proxy deployed
 
+    // @notice core stake struct and stakes per user, remove with next proxy update. All done via distr
     struct Stake {
         uint256 totalBalance;
         uint256 eraStarted;
     }
     mapping(address => Stake) public stakes;
 
+    // @notice user requested withdrawals
     struct Withdrawal {
         uint256 val;
         uint256 eraReq;
     }
     mapping(address => Withdrawal[]) public withdrawals;
 
+    // @notice useful values per era
     struct eraData {
         bool done;
         uint256 val;
@@ -78,6 +85,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         lastUnstaked = 1178;
     }
 
+    // @notice set init values
     function setup() external onlyRole(MANAGER) {
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
         DNTname = "nSBY";
@@ -87,38 +95,47 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // ------------------ ADMIN
     // ------------------------
+
+    // @notice set distributor address
     function set_distr(address _newDistr) public onlyRole(MANAGER) {
         distrAddr = _newDistr;
         distr = NDistributor(distrAddr);
     }
 
+    // @notice set DNT address
+    function set_dntToken(address _address) public onlyRole(MANAGER) {
+        dntToken = _address;
+    }
+
+    // @dev debug purposes
     function set_proxy(address _p) public onlyRole(MANAGER) {
         proxyAddr = _p;
     }
 
+    // @dev debug purposes
     function set_last(uint256 _val) public onlyRole(MANAGER) {
         lastUpdated = _val;
     }
 
+    // @dev debug purposes
     function set_lastS(uint256 _val) public onlyRole(MANAGER) {
         lastStaked = _val;
     }
 
+    // @dev debug purposes
     function set_lastU(uint256 _val) public onlyRole(MANAGER) {
         lastUnstaked = _val;
-    }
-
-    function set_dntToken(address _address) public onlyRole(MANAGER) {
-        dntToken = _address;
     }
 
 
     // ------------------ VIEWS
     // ------------------------
+    // @notice get current era
     function current_era() public view returns(uint256) {
         return DAPPS_STAKING.read_current_era();
     }
 
+    // @notice return stakers array
     function get_stakers() public view returns(address[] memory) {
         require(msg.sender == dntToken && msg.sender != address(0), "> Only available for token contract!");
         return stakers;
@@ -132,56 +149,43 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // ------------------ DAPPS_STAKING
     // --------------------------------
-    function global_stake(uint128 val) public {
-        //uint128 sum2stake = 0;
-        //uint128 val = uint128(eraStaked[_era].val);
 
-        if (val > 0) {
-            DAPPS_STAKING.bond_and_stake(proxyAddr, val);
-            //eraStaked[_era].done = true;
-        }
-        /*
+    // @notice stake tokens from not yet updated eras
+    // @param  [uint256] _era => latest era to update
+    function global_stake(uint256 _era) public {
+        uint128 sum2stake = 0;
+
         for (uint256 i = lastStaked + 1; i <= _era;) {
-            //sum2stake += uint128(eraStaked[i].val);
+            sum2stake += uint128(eraStaked[i].val);
+            eraStaked[i].done = true;
             unchecked { ++i; }
         }
-        */
 
-/*
-        if(sum2stake != 0){
+        if (sum2stake > 0) {
             DAPPS_STAKING.bond_and_stake(proxyAddr, sum2stake);
             lastStaked = _era;
         }
-        */
     }
 
-    function viewmuchstake(uint256 _era) public view returns(uint128) {
-        uint128 sum2stake = 0;
-        for (uint256 i = lastUnstaked + 1; i <= _era;) {
-            sum2stake += uint128(eraStaked[i].val);
-
-            unchecked { ++i; }
-        }
-        return sum2stake;
-    }
-
+    // @notice ustake tokens from not yet updated eras
+    // @param  [uint256] _era => latest era to update
     function global_unstake(uint256 _era) public {
-        //uint128 sum2unstake = 0;
+        uint128 sum2unstake = 0;
 
-        DAPPS_STAKING.unbond_and_unstake(proxyAddr, uint128(eraUnstaked[_era].val));
-        eraUnstaked[_era].done = true;
-/*
         for (uint256 i = lastUnstaked + 1; i <= _era;) {
             eraUnstaked[i].done = true;
             sum2unstake += uint128(eraUnstaked[i].val);
             unchecked { ++i; }
         }
-        if(sum2unstake != 0) {
+
+        if(sum2unstake > 0) {
+            DAPPS_STAKING.unbond_and_unstake(proxyAddr, sum2unstake);
             lastUnstaked = _era;
         }
-*/
     }
 
+    // @notice withdraw unbonded tokens
+    // @param  [uint256] _era => desired era
     function global_withdraw(uint256 _era) public {
         for (uint i = lastUpdated + 1; i <= _era;) {
 
@@ -198,6 +202,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
     }
 
+    // @notice LS contract claims staker rewards
     function global_claim(uint256 _era) public {
         // claim rewards
         uint256 p = address(proxyAddr).balance;
@@ -219,53 +224,42 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
     }
 
-
-
-    // ------------------ MISC
-    // -----------------------
-    function addStaker(address _addr) public {
-        require(msg.sender == distrAddr, "> Only available for token contract!");
-        uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, utilName, DNTname);
-        stakes[msg.sender].totalBalance = stakerDntBalance;
-        rewardsByAddress[_addr] = 0;
-        stakers.push(_addr);
-    }
-
-    function mintShadowTokens(address _user, uint _amount) public {
-        require(msg.sender == distrAddr, "Not available");
-        shadowTokensAmount[_user] += _amount;
-    }
-
-    function burnShadowTokens(address _user, uint _amount) public {
-        require(msg.sender == distrAddr, "Not available");
-        shadowTokensAmount[_user] -= _amount;
-    }
-
-    function fill_pools(uint256 _era) public {
-
-        for (uint i = lastUpdated + 1; i <= _era;) {
-            eraRevenue[i].done = true;
-            unstakingPool += eraRevenue[i].val / 10; // 10% of revenue goes to unstaking pool
-            unchecked { ++i; }
-        }
-
-        eraStakerReward[_era].done = true;
-        rewardPool += eraStakerReward[_era].val;
-    }
-
-    function fill_unbonded() external payable {
-        require(msg.value > 0, "Provide some value!");
-        unbondedPool += msg.value;
-    }
-
-    function fill_unstaking() external payable {
-        require(msg.value > 0, "Provide some value!");
-        unstakingPool += msg.value;
+    // @notice claim dapp rewards, transferred to dapp owner
+    // @param  [uint256] _era => desired era number
+    function claim_dapp(uint256 _era) public {
+        /*
+        require(current_era() != _era, "Cannot claim yet!");
+        require(eraDappReward[_era].val == 0, "Already claimed!");
+        uint256 p = address(proxyAddr).balance;
+        */
+        DAPPS_STAKING.claim_dapp(proxyAddr, uint128(_era));
+        /*
+        uint256 a = address(proxyAddr).balance;
+        uint256 coms = (a - p) / 10; // 10% goes to revenue pool
+        eraDappReward[_era].val = a - p - coms;
+        eraRevenue[_era].val += coms;
+        */
     }
 
 
     // -------------- USER FUNCS
     // -------------------------
+
+    // @notice updates global balances, stakes/unstakes etc
+    modifier updateAll {
+        uint256 era = current_era() - 1; // last era to update
+        if (lastUpdated != era) {
+            global_withdraw(era);
+            global_claim(era);
+            global_stake(era);
+            global_unstake(era);
+            fill_pools(era);
+            lastUpdated = era;
+        }
+        _;
+    }
+
+    // @notice stake native tokens, receive equal amount of DNT
     function stake() external payable updateAll {
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
@@ -285,11 +279,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         distr.issueDnt(msg.sender, val, utilName, DNTname);
     }
 
+    // @notice unstake tokens from app, loose DNT
+    // @param  [uint256] _amount => amount of tokens to unstake
+    // @param  [bool] _immediate => receive tokens from unstaking pool, create a withdrawal otherwise
     function unstake(uint256 _amount, bool _immediate) external updateAll {
         uint userDntBalance = distr.getUserDntBalanceInUtil(msg.sender, utilName, DNTname);
         Stake storage s = stakes[msg.sender];
 
-        // check if user have enough nTokens
         require(userDntBalance >= _amount, "> Not enough nASTR!");
         require(_amount > 0, "Invalid amount!");
 
@@ -308,13 +304,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
         distr.removeDnt(msg.sender, _amount, utilName, DNTname);
 
-        if (_immediate) {
+        if (_immediate) { // get liquidity from unstaking pool
             require(unstakingPool >= _amount, "Unstaking pool drained!");
             uint256 fee = _amount / 100; // 1% immediate unstaking fee
             eraRevenue[era].val += fee;
             unstakingPool -= _amount;
             payable(msg.sender).transfer(_amount - fee);
-        } else {
+        } else { // create a withdrawal to withdraw_unbonded later
             withdrawals[msg.sender].push(Withdrawal({
                 val: _amount,
                 eraReq: era
@@ -322,14 +318,20 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
     }
 
+    // @notice claim rewards by user
+    // @param  [uint256] _amount => amount of claimed reward
     function claim(uint _amount) external updateAll {
         require(rewardPool >= _amount, "Rewards pool drained!");
         require(rewardsByAddress[msg.sender] >= _amount, "> Not enough rewards!");
+
         rewardPool -= _amount;
         rewardsByAddress[msg.sender] -= _amount;
+
         payable(msg.sender).transfer(_amount);
     }
 
+    // @notice finish previously opened withdrawal
+    // @param  [uint256] _id => withdrawal index
     function withdraw(uint256 _id) external updateAll {
         Withdrawal storage w = withdrawals[msg.sender][_id];
         uint256 val = w.val;
@@ -344,39 +346,56 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         payable(msg.sender).transfer(val);
     }
 
-    modifier updateAll { // each user call triggers global update
-        uint256 era = current_era() - 1; // last era to update
-        if (lastUpdated != era) {
-            global_withdraw(era);
-            global_claim(era);
-            //global_stake(era);
-            //global_unstake(era);
-            fill_pools(era);
-            lastUpdated = era;
-        }
-        _;
-    }
-    function claim_dapp(uint256 _era) public {
-        /*
-        require(current_era() != _era, "Cannot claim yet!");
-        require(eraDappReward[_era].val == 0, "Already claimed!");
-        uint256 p = address(proxyAddr).balance;
-        */
-        DAPPS_STAKING.claim_dapp(proxyAddr, uint128(_era));
-        /*
-        uint256 a = address(proxyAddr).balance;
-        uint256 coms = (a - p) / 10; // 10% goes to revenue pool
-        eraDappReward[_era].val = a - p - coms;
-        eraRevenue[_era].val += coms;
-        */
-    }
-    // function claim(uint256 _era) external updateAll {
-    //     require(!userClaimed[msg.sender][_era], "Already claimed!");
-    //     userClaimed[msg.sender][_era] = true;
-    //     uint256 reward = user_reward(_era);
-    //     require(rewardPool >= reward, "Rewards pool drained!");
-    //     rewardPool -= reward;
-    //     payable(msg.sender).transfer(reward);
-    // }
 
+    // ------------------ MISC
+    // -----------------------
+
+    // @notice add new staker and save balances
+    // @param  [address] => user to add
+    function addStaker(address _addr) public {
+        require(msg.sender == distrAddr, "> Only available for token contract!");
+        uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, utilName, DNTname);
+        stakes[msg.sender].totalBalance = stakerDntBalance;
+        rewardsByAddress[_addr] = 0;
+        stakers.push(_addr);
+    }
+
+    // @notice needed for external liquidity pool
+    function mintShadowTokens(address _user, uint _amount) public {
+        require(msg.sender == distrAddr, "Not available");
+        shadowTokensAmount[_user] += _amount;
+    }
+
+    // @notice needed for external liquidity pool
+    function burnShadowTokens(address _user, uint _amount) public {
+        require(msg.sender == distrAddr, "Not available");
+        shadowTokensAmount[_user] -= _amount;
+    }
+
+    // @notice fill pools with reward comissions etc
+    // @param  [uint256] _era => desired era
+    function fill_pools(uint256 _era) public {
+
+        // iterate over non-processed eras
+        for (uint i = lastUpdated + 1; i <= _era;) {
+            eraRevenue[i].done = true;
+            unstakingPool += eraRevenue[i].val / 10; // 10% of revenue goes to unstaking pool
+            unchecked { ++i; }
+        }
+
+        eraStakerReward[_era].done = true;
+        rewardPool += eraStakerReward[_era].val;
+    }
+
+    // @notice manually fill the unbonded pool
+    function fill_unbonded() external payable {
+        require(msg.value > 0, "Provide some value!");
+        unbondedPool += msg.value;
+    }
+
+    // @notice manually fill the unstaking pool
+    function fill_unstaking() external payable {
+        require(msg.value > 0, "Provide some value!");
+        unstakingPool += msg.value;
+    }
 }
