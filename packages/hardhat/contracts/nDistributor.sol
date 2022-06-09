@@ -330,7 +330,22 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
 
         users[_to].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[_to].dnt[_dnt].dntLiquid += _amount;
-        // DNTContract.mintNote(_to, _amount);
+        DNTContract.mintNote(_to, _amount);
+    }
+
+    function                           issueTransferDnt(address _to,
+                                                uint256 _amount,
+                                                string memory _utility,
+                                                string memory _dnt) public onlyRole(MANAGER) dntInterface(_dnt) {
+
+        require(utilityDB[utilityId[_utility]].isActive == true, "Invalid utility!");
+
+        _addDntToUser(_dnt, users[_to].userDnts);
+        _addUtilityToUser(_utility, users[_to].userUtilities);
+        _addUtilityToUser(_utility, users[_to].dnt[_dnt].userUtils);
+
+        users[_to].dnt[_dnt].dntInUtil[_utility] += _amount;
+        users[_to].dnt[_dnt].dntLiquid += _amount;
     }
 
     // @notice                         adds dnt string to user array of dnts for tracking which assets are in possession
@@ -463,7 +478,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         }
 
         removeDnt(_from, _amount, _utility, _dnt);
-        issueDnt(_to, _amount, "LiquidStaking", _dnt);
+        issueTransferDnt(_to, _amount, "LiquidStaking", _dnt);
     }
 
     // @notice                         allows to set a utility to free tokens (marked with null utility)
