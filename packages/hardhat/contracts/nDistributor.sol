@@ -15,8 +15,9 @@ import "./interfaces/IDNT.sol";
 interface ILiquidStaking {
     function addStaker(address) external;
     function isStaker(address) external view returns(bool);
-    function mintShadowTokens(address, uint) external;
-    function burnShadowTokens(address, uint) external;
+    function isLpToken(address) external view returns(bool);
+    function hasLpToken(address) external view returns(bool);
+    function addToLpOwners(address) external;
 }
 
 /*
@@ -329,7 +330,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
 
         users[_to].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[_to].dnt[_dnt].dntLiquid += _amount;
-        DNTContract.mintNote(_to, _amount);
+        // DNTContract.mintNote(_to, _amount);
     }
 
     // @notice                         adds dnt string to user array of dnts for tracking which assets are in possession
@@ -397,7 +398,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
             _removeDntFromUser(_dnt, users[_account].userDnts);
         }
 
-        DNTContract.burnNote(_account, _amount);
+        // DNTContract.burnNote(_account, _amount);
     }
 
     // @notice                         removes utility string from user array of utilities
@@ -447,14 +448,20 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
                                                    string memory _dnt) public onlyRole(MANAGER) {
 
         require(users[_from].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT tokens in utility!");
-        if (!isPool[_to] && !liquidStaking.isStaker(_to)) {
+
+        // checks if the recipient is a lp token and
+        // sender have not lp tokens
+        // add it to lp token owners
+        if (liquidStaking.isLpToken(_to) && !liquidStaking.hasLpToken(_from)) {
+            liquidStaking.addToLpOwners(_from);
+        }
+
+        // checks if recepient of dnt already in stakers list
+        // add it to list if not
+        if (!liquidStaking.isStaker(_to) && !liquidStaking.isLpToken(_to)) {
             liquidStaking.addStaker(_to);
         }
-        if (isPool[_to]) {
-            liquidStaking.mintShadowTokens(_from, _amount);
-        } else if (isPool[_from]) {
-            liquidStaking.burnShadowTokens(_to, _amount);
-        }
+
         removeDnt(_from, _amount, _utility, _dnt);
         issueDnt(_to, _amount, "LiquidStaking", _dnt);
     }
@@ -550,10 +557,5 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
    // @notice                           sets Liquid Staking contract
    function                             setLiquidStaking(address _liquidStaking) external onlyRole(DEFAULT_ADMIN_ROLE) {
        liquidStaking = ILiquidStaking(_liquidStaking);
-   }
-
-   // @notice                           add pool address to list of pools
-   function                             addPool(address _pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
-       isPool[_pool] = true;
    }
 }

@@ -7,6 +7,10 @@ import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradea
 import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
 
+interface ILpToken {
+    function balanceOf(address) external view returns(uint);
+}
+
 //shibuya: 0xD9E81aDADAd5f0a0B59b1a70e0b0118B85E2E2d3
 contract LiquidStaking is Initializable, AccessControlUpgradeable {
     DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);
@@ -21,7 +25,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint256 public minStake; // remove when next proxy deployed
     uint256 public withdrawBlock;
 
-    // @notice 
+    // @notice
     uint256 public unstakingPool;
     uint256 public rewardPool;
 
@@ -71,8 +75,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint256 public lastStaked;
     uint256 public lastUnstaked;
 
-    mapping (address => uint) private shadowTokensAmount;
+    mapping (address => uint) private shadowTokensAmount; // <-- not used
 
+    // @notice                         handlers for work with LP tokens
+    //                                 for now supposed rate 1 dnt / 1 lpToken
+    mapping (address => bool) public isLpToken;
+    mapping (address => bool) public hasLpTokens;
+    address[] public lpTokens;
 
     // ------------------ INIT
     // -----------------------
@@ -125,6 +134,16 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // @dev debug purposes
     function set_lastU(uint256 _val) public onlyRole(MANAGER) {
         lastUnstaked = _val;
+    }
+
+    // @dev for correct rewards calculation
+    function add_lpToken(address _lp) public onlyRole(MANAGER) {
+        isLpToken[_lp] = true;
+        lpTokens.push(_lp);
+    }
+
+    function addToLpOwners(address _user) public onlyDistributor {
+        hasLpTokens[_user] = true;
     }
 
 
@@ -218,12 +237,25 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function calc_user_rewards(uint256 _era) public {
         uint length = stakers.length;
         address[] memory _stakers = stakers;
-        
+
         // iter on each staker and give him some rewards
         for (uint i; i < length;) {
             address stakerAddr = _stakers[i];
+            uint lpBalance; // amount of user lp tokens
+
+            // iter on each lpToken contract and
+            // add amount of tokens to user additionalBalance if has some
+            if (hasLpTokens[stakerAddr]) {
+                for (uint j; j < lpTokens.length;) {
+                    lpBalance += ILpToken(lpTokens[j]).balanceOf(stakerAddr);
+                    unchecked { ++i; }
+                }
+                if (lpBalance == 0) {
+                    hasLpTokens[stakerAddr] = false;
+                }
+            }
             uint stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
-            rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * (stakerDntBalance + shadowTokensAmount[stakerAddr]) / totalBalance;
+            rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * (stakerDntBalance + lpBalance) / totalBalance;
             unchecked { ++i; }
         }
     }
@@ -261,6 +293,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             fill_pools(era);
             lastUpdated = era;
         }
+        _;
+    }
+
+    modifier onlyDistributor {
+        require(msg.sender == distrAddr, "Only for distributor!");
         _;
     }
 
@@ -357,24 +394,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice add new staker and save balances
     // @param  [address] => user to add
-    function addStaker(address _addr) public {
-        require(msg.sender == distrAddr, "> Only available for token contract!");
+    function addStaker(address _addr) public onlyDistributor {
         uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, utilName, DNTname);
         stakes[msg.sender].totalBalance = stakerDntBalance;
         rewardsByAddress[_addr] = 0;
         stakers.push(_addr);
-    }
-
-    // @notice needed for external liquidity pool
-    function mintShadowTokens(address _user, uint _amount) public {
-        require(msg.sender == distrAddr, "Not available");
-        shadowTokensAmount[_user] += _amount;
-    }
-
-    // @notice needed for external liquidity pool
-    function burnShadowTokens(address _user, uint _amount) public {
-        require(msg.sender == distrAddr, "Not available");
-        shadowTokensAmount[_user] -= _amount;
     }
 
     // @notice fill pools with reward comissions etc
