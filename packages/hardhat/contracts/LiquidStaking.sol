@@ -143,7 +143,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         lpTokens.push(_lp);
     }
 
-    function addToLpOwners(address _user) public onlyDistributor {
+    function addToLpOwners(address _user) public {
         hasLpTokens[_user] = true;
     }
 
@@ -401,7 +401,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice add new staker and save balances
     // @param  [address] => user to add
-    function addStaker(address _addr) public onlyDistributor {
+    function addStaker(address _addr) public {
         uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, utilName, DNTname);
         stakes[msg.sender].totalBalance = stakerDntBalance;
         rewardsByAddress[_addr] = 0;
