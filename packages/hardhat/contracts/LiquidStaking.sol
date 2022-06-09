@@ -82,6 +82,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     mapping (address => bool) public isLpToken;
     mapping (address => bool) public hasLpTokens;
     address[] public lpTokens;
+    uint256 public lastRewardsCalculated;
 
     // ------------------ INIT
     // -----------------------
@@ -144,6 +145,10 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     function addToLpOwners(address _user) public onlyDistributor {
         hasLpTokens[_user] = true;
+    }
+
+    function setLRC(uint256 _val) public onlyRole(MANAGER) {
+        lastRewardsCalculated = _val;
     }
 
 
@@ -235,6 +240,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     function calc_user_rewards(uint256 _era) public {
+        require(lastRewardsCalculated < _era, "Already calc'd!");
+        lastRewardsCalculated = _era;
         uint length = stakers.length;
         address[] memory _stakers = stakers;
 
