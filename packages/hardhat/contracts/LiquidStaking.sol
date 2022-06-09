@@ -213,11 +213,15 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
         eraStakerReward[_era].val = a - p - coms; // rewards to share between users
         eraRevenue[_era].val += coms;
+    }
 
+    function calc_user_rewards(uint256 _era) public {
         uint length = stakers.length;
+        address[] memory _stakers = stakers;
+        
         // iter on each staker and give him some rewards
         for (uint i; i < length;) {
-            address stakerAddr = stakers[i];
+            address stakerAddr = _stakers[i];
             uint stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
             rewardsByAddress[stakerAddr] += eraStakerReward[_era].val * (stakerDntBalance + shadowTokensAmount[stakerAddr]) / totalBalance;
             unchecked { ++i; }
@@ -250,6 +254,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         uint256 era = current_era() - 1; // last era to update
         if (lastUpdated != era) {
             global_withdraw(era);
+            claim_dapp(era);
             global_claim(era);
             global_stake(era);
             global_unstake(era);
