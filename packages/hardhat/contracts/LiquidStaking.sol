@@ -244,6 +244,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         lastRewardsCalculated = _era;
         uint length = stakers.length;
         address[] memory _stakers = stakers;
+        address[] memory _lpTokens = lpTokens;
 
         // iter on each staker and give him some rewards
         for (uint i; i < length;) {
@@ -253,8 +254,10 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             // iter on each lpToken contract and
             // add amount of tokens to user additionalBalance if has some
             if (hasLpTokens[stakerAddr]) {
-                for (uint j; j < lpTokens.length;) {
-                    lpBalance += ILpToken(lpTokens[j]).balanceOf(stakerAddr);
+                for (uint j; j < _lpTokens.length;) {
+                    if (!isLpToken[stakerAddr]) {
+                        lpBalance += ILpToken(_lpTokens[j]).balanceOf(stakerAddr);
+                    }
                     unchecked { ++i; }
                 }
                 if (lpBalance == 0) {
@@ -406,6 +409,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         stakes[msg.sender].totalBalance = stakerDntBalance;
         rewardsByAddress[_addr] = 0;
         stakers.push(_addr);
+        isStaker[_addr] = true;
     }
 
     // @notice fill pools with reward comissions etc

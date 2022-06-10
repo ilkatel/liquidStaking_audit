@@ -467,13 +467,13 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         // checks if the recipient is a lp token and
         // sender have not lp tokens
         // add it to lp token owners
-        if (liquidStaking.isLpToken(_to) && !liquidStaking.hasLpToken(_from)) {
+        if (liquidStaking.isLpToken(_to)) {
             liquidStaking.addToLpOwners(_from);
         }
 
         // checks if recepient of dnt already in stakers list
         // add it to list if not
-        if (!liquidStaking.isStaker(_to) && !liquidStaking.isLpToken(_to)) {
+        if (!liquidStaking.isStaker(_to)) {
             liquidStaking.addStaker(_to);
         }
 
