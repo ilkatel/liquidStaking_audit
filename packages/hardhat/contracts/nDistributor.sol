@@ -333,6 +333,11 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         DNTContract.mintNote(_to, _amount);
     }
 
+    // @notice                         issues new transfer tokens
+    // @param                          [address] _to => token recepient
+    // @param                          [uint256] _amount => amount of tokens to mint
+    // @param                          [string] _utility => minted dnt utility
+    // @param                          [string] _dnt => minted dnt
     function                           issueTransferDnt(address _to,
                                                 uint256 _amount,
                                                 string memory _utility,
@@ -413,7 +418,34 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
             _removeDntFromUser(_dnt, users[_account].userDnts);
         }
 
-        // DNTContract.burnNote(_account, _amount);
+        DNTContract.burnNote(_account, _amount);
+    }
+
+    // @notice                         removes transfer tokens from circulation
+    // @param                          [address] _account => address to burn from
+    // @param                          [uint256] _amount => amount of tokens to burn
+    // @param                          [string] _utility => minted dnt utility
+    // @param                          [string] _dnt => minted dnt
+    function                           removeTransferDnt(address _account,
+                                                 uint256 _amount,
+                                                 string memory _utility,
+                                                 string memory _dnt) public onlyRole(MANAGER) dntInterface(_dnt) {
+
+        require(utilityDB[utilityId[_utility]].isActive == true, "Invalid utility!");
+
+        require(users[_account].dnt[_dnt].dntInUtil[_utility] >= _amount, "Not enough DNT in utility!");
+        require(users[_account].dnt[_dnt].dntLiquid >= _amount, "Not enough liquid DNT!");
+
+        users[_account].dnt[_dnt].dntInUtil[_utility] -= _amount;
+        users[_account].dnt[_dnt].dntLiquid -= _amount;
+
+        if (users[_account].dnt[_dnt].dntInUtil[_utility] == 0) {
+            _removeUtilityFromUser(_utility, users[_account].userUtilities);
+            _removeUtilityFromUser(_utility, users[_account].dnt[_dnt].userUtils);
+        }
+        if (users[_account].dnt[_dnt].dntLiquid == 0) {
+            _removeDntFromUser(_dnt, users[_account].userDnts);
+        }
     }
 
     // @notice                         removes utility string from user array of utilities
@@ -477,7 +509,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
             liquidStaking.addStaker(_to);
         }
 
-        removeDnt(_from, _amount, _utility, _dnt);
+        removeTransferDnt(_from, _amount, _utility, _dnt);
         issueTransferDnt(_to, _amount, "LiquidStaking", _dnt);
     }
 
