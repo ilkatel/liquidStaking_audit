@@ -8,13 +8,14 @@ import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
 
 interface ILpToken {
-    function balanceOf(address) external view returns(uint256);
+    function balanceOf(address) external view returns (uint256);
 }
 
 //shibuya: 0xD9E81aDADAd5f0a0B59b1a70e0b0118B85E2E2d3
 contract LiquidStaking is Initializable, AccessControlUpgradeable {
-    DappsStaking public constant DAPPS_STAKING = DappsStaking(0x0000000000000000000000000000000000005001);
-    bytes32 public constant            MANAGER = keccak256("MANAGER");
+    DappsStaking public constant DAPPS_STAKING =
+        DappsStaking(0x0000000000000000000000000000000000005001);
+    bytes32 public constant MANAGER = keccak256("MANAGER");
 
     // @notice settings for distributor
     string public utilName;
@@ -31,7 +32,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice distributor data
     address public distrAddr;
-    NDistributor   distr;
+    NDistributor distr;
 
     mapping(address => mapping(uint256 => bool)) public userClaimed; // remove when next proxy deployed
 
@@ -67,24 +68,25 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint256 public lastUpdated; // last era updated everything
 
     // Reward handlers
-    mapping (address => uint) public rewardsByAddress;
+    mapping(address => uint256) public rewardsByAddress;
     address[] public stakers;
     address public dntToken;
-    mapping (address => bool) public isStaker;
+    mapping(address => bool) public isStaker;
 
     uint256 public lastStaked;
     uint256 public lastUnstaked;
 
-    mapping (address => uint) private shadowTokensAmount; // <-- not used
+    mapping(address => uint256) private shadowTokensAmount; // <-- not used
 
     // @notice                         handlers for work with LP tokens
     //                                 for now supposed rate 1 dnt / 1 lpToken
-    mapping (address => bool) public isLpToken;
-    mapping (address => bool) public hasLpTokens;
+    mapping(address => bool) public isLpToken;
+    mapping(address => bool) public hasLpTokens;
     address[] public lpTokens;
     uint256 public lastRewardsCalculated;
 
     mapping(address => mapping(uint256 => bool)) public userCalcd; // remove when next proxy deployed
+    mapping(address => uint256) lastUserCalcd; // last era user reward calculated
 
     // ------------------ INIT
     // -----------------------
@@ -103,7 +105,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         DNTname = "nSBY";
         utilName = "LiquidStaking";
     }
-
 
     // ------------------ ADMIN
     // ------------------------
@@ -153,25 +154,68 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         lastRewardsCalculated = _val;
     }
 
-
     // ------------------ VIEWS
     // ------------------------
     // @notice get current era
-    function current_era() public view returns(uint256) {
+    function current_era() public view returns (uint256) {
         return DAPPS_STAKING.read_current_era();
     }
 
     // @notice return stakers array
-    function get_stakers() public view returns(address[] memory) {
-        require(msg.sender == dntToken && msg.sender != address(0), "> Only available for token contract!");
+    function get_stakers() public view returns (address[] memory) {
+        require(
+            msg.sender == dntToken && msg.sender != address(0),
+            "> Only available for token contract!"
+        );
         return stakers;
     }
 
     // @notice returns user active withdrawals
-    function get_user_withdrawals() public view returns(Withdrawal[] memory) {
+    function get_user_withdrawals() public view returns (Withdrawal[] memory) {
         return withdrawals[msg.sender];
     }
 
+    function chck() public calcReward {
+
+    }
+
+    function user_reward(address _staker, uint256 _era)
+        public
+        view
+        returns (uint256 reward)
+    {
+        uint256 lpBalance; // amount of user lp tokens
+
+        if (lastRewardsCalculated == _era) {
+            reward = rewardsByAddress[_staker];
+        } else {
+            // iter on each lpToken contract and
+            // add amount of tokens to user additionalBalance if has some
+            if (hasLpTokens[_staker]) {
+                for (uint256 j; j < lpTokens.length; ) {
+                    if (!isLpToken[_staker]) {
+                        lpBalance += ILpToken(lpTokens[j]).balanceOf(_staker);
+                    }
+                    unchecked { ++j;}
+                }
+                /* i REALLY hope this  wont break everything
+                if (lpBalance == 0) {
+                    hasLpTokens[_staker] = false;
+                }
+                */
+            }
+
+            uint256 stakerDntBalance = distr.getUserDntBalanceInUtil(
+                _staker,
+                utilName,
+                DNTname
+            );
+            return
+                rewardsByAddress[_staker] +
+                (eraStakerReward[_era].val * (stakerDntBalance + lpBalance)) /
+                totalBalance;
+        }
+    }
 
     // ------------------ DAPPS_STAKING
     // --------------------------------
@@ -181,10 +225,12 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function global_stake(uint256 _era) public {
         uint128 sum2stake = 0;
 
-        for (uint256 i = lastStaked + 1; i <= _era;) {
+        for (uint256 i = lastStaked + 1; i <= _era; ) {
             sum2stake += uint128(eraStaked[i].val);
             eraStaked[i].done = true;
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         if (sum2stake > 0) {
@@ -198,13 +244,15 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function global_unstake(uint256 _era) public {
         uint128 sum2unstake = 0;
 
-        for (uint256 i = lastUnstaked + 1; i <= _era;) {
+        for (uint256 i = lastUnstaked + 1; i <= _era; ) {
             eraUnstaked[i].done = true;
             sum2unstake += uint128(eraUnstaked[i].val);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
-        if(sum2unstake > 0) {
+        if (sum2unstake > 0) {
             DAPPS_STAKING.unbond_and_unstake(proxyAddr, sum2unstake);
             lastUnstaked = _era;
         }
@@ -213,10 +261,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // @notice withdraw unbonded tokens
     // @param  [uint256] _era => desired era
     function global_withdraw(uint256 _era) public {
-        for (uint i = lastUpdated + 1; i <= _era;) {
-
-            if(eraUnstaked[i - withdrawBlock].val != 0) {
-
+        for (uint256 i = lastUpdated + 1; i <= _era; ) {
+            if (eraUnstaked[i - withdrawBlock].val != 0) {
                 uint256 p = address(proxyAddr).balance;
                 DAPPS_STAKING.withdraw_unbonded();
                 uint256 a = address(proxyAddr).balance;
@@ -224,7 +270,9 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
                 break;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -240,7 +288,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         eraStakerReward[_era].val = a - p - coms; // rewards to share between users
         eraRevenue[_era].val += coms;
     }
-
 
     /*
     function calc_user_rewards(uint _i, uint _div, uint256 _era) public {
@@ -292,12 +339,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         */
     }
 
-
     // -------------- USER FUNCS
     // -------------------------
 
     // @notice updates global balances, stakes/unstakes etc
-    modifier updateAll {
+    modifier updateAll() {
         uint256 era = current_era() - 1; // last era to update
         if (lastUpdated != era) {
             global_withdraw(era);
@@ -311,44 +357,24 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         _;
     }
 
-    modifier calcReward {
+    modifier calcReward() {
         uint256 era = current_era() - 1;
         address stakerAddr = msg.sender;
-        address[] memory _lpTokens = lpTokens;
 
-        bool calcd = userCalcd[stakerAddr][era];
-        if (!calcd) {
-            //calc
-            uint256 lpBalance; // amount of user lp tokens
-
-            // iter on each lpToken contract and
-            // add amount of tokens to user additionalBalance if has some
-            if (hasLpTokens[stakerAddr]) {
-                for (uint j; j < _lpTokens.length;) {
-                    if (!isLpToken[stakerAddr]) {
-                        lpBalance += ILpToken(_lpTokens[j]).balanceOf(stakerAddr);
-                    }
-                    unchecked { ++j; }
-                }
-                if (lpBalance == 0) {
-                    hasLpTokens[stakerAddr] = false;
-                }
-            }
-            uint256 stakerDntBalance = distr.getUserDntBalanceInUtil(stakerAddr, utilName, DNTname);
-            rewardsByAddress[stakerAddr] += eraStakerReward[era].val * (stakerDntBalance +  lpBalance ) / totalBalance;
-
-            userCalcd[stakerAddr][era] = true;
+        if (lastUserCalcd[stakerAddr] < era) {
+            rewardsByAddress[stakerAddr] = user_reward(stakerAddr, era);
+            lastUserCalcd[stakerAddr] = era;
         }
         _;
     }
 
-    modifier onlyDistributor {
+    modifier onlyDistributor() {
         require(msg.sender == distrAddr, "Only for distributor!");
         _;
     }
 
     // @notice stake native tokens, receive equal amount of DNT
-    function stake() external payable updateAll calcReward {
+    function stake() external payable updateAll {
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
         uint256 val = msg.value;
@@ -370,8 +396,12 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // @notice unstake tokens from app, loose DNT
     // @param  [uint256] _amount => amount of tokens to unstake
     // @param  [bool] _immediate => receive tokens from unstaking pool, create a withdrawal otherwise
-    function unstake(uint256 _amount, bool _immediate) external updateAll calcReward {
-        uint userDntBalance = distr.getUserDntBalanceInUtil(msg.sender, utilName, DNTname);
+    function unstake(uint256 _amount, bool _immediate) external updateAll {
+        uint256 userDntBalance = distr.getUserDntBalanceInUtil(
+            msg.sender,
+            utilName,
+            DNTname
+        );
         Stake storage s = stakes[msg.sender];
 
         require(userDntBalance >= _amount, "> Not enough nASTR!");
@@ -392,25 +422,29 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
         distr.removeDnt(msg.sender, _amount, utilName, DNTname);
 
-        if (_immediate) { // get liquidity from unstaking pool
+        if (_immediate) {
+            // get liquidity from unstaking pool
             require(unstakingPool >= _amount, "Unstaking pool drained!");
             uint256 fee = _amount / 100; // 1% immediate unstaking fee
             eraRevenue[era].val += fee;
             unstakingPool -= _amount;
             payable(msg.sender).transfer(_amount - fee);
-        } else { // create a withdrawal to withdraw_unbonded later
-            withdrawals[msg.sender].push(Withdrawal({
-                val: _amount,
-                eraReq: era
-            }));
+        } else {
+            // create a withdrawal to withdraw_unbonded later
+            withdrawals[msg.sender].push(
+                Withdrawal({val: _amount, eraReq: era})
+            );
         }
     }
 
     // @notice claim rewards by user
     // @param  [uint256] _amount => amount of claimed reward
-    function claim(uint _amount) external updateAll calcReward {
+    function claim(uint256 _amount) external updateAll {
         require(rewardPool >= _amount, "Rewards pool drained!");
-        require(rewardsByAddress[msg.sender] >= _amount, "> Not enough rewards!");
+        require(
+            rewardsByAddress[msg.sender] >= _amount,
+            "> Not enough rewards!"
+        );
 
         rewardPool -= _amount;
         rewardsByAddress[msg.sender] -= _amount;
@@ -420,7 +454,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice finish previously opened withdrawal
     // @param  [uint256] _id => withdrawal index
-    function withdraw(uint256 _id) external updateAll calcReward {
+    function withdraw(uint256 _id) external updateAll {
         Withdrawal storage w = withdrawals[msg.sender][_id];
         uint256 val = w.val;
         uint256 era = current_era();
@@ -434,14 +468,17 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         payable(msg.sender).transfer(val);
     }
 
-
     // ------------------ MISC
     // -----------------------
 
     // @notice add new staker and save balances
     // @param  [address] => user to add
     function addStaker(address _addr) public {
-        uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, utilName, DNTname);
+        uint256 stakerDntBalance = distr.getUserDntBalanceInUtil(
+            _addr,
+            utilName,
+            DNTname
+        );
         stakes[msg.sender].totalBalance = stakerDntBalance;
         rewardsByAddress[_addr] = 0;
         stakers.push(_addr);
@@ -451,12 +488,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // @notice fill pools with reward comissions etc
     // @param  [uint256] _era => desired era
     function fill_pools(uint256 _era) public {
-
         // iterate over non-processed eras
-        for (uint i = lastUpdated + 1; i <= _era;) {
+        for (uint256 i = lastUpdated + 1; i <= _era; ) {
             eraRevenue[i].done = true;
             unstakingPool += eraRevenue[i].val / 10; // 10% of revenue goes to unstaking pool
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         eraStakerReward[_era].done = true;
