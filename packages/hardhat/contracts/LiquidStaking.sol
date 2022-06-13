@@ -179,6 +179,14 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     }
 
+    function get_user_lp_tokens(address _user) public view returns (uint amount) {
+        address[] memory _lpTokens = lpTokens;
+        for (uint i; i < _lpTokens.length;) {
+            amount += ILpToken(_lpTokens[i]).balanceOf(_user);
+            unchecked { ++i; }
+        }
+    }
+
     function user_reward(address _staker, uint256 _era)
         public
         view
@@ -189,20 +197,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         if (lastRewardsCalculated == _era) {
             reward = rewardsByAddress[_staker];
         } else {
-            // iter on each lpToken contract and
-            // add amount of tokens to user additionalBalance if has some
-            if (hasLpTokens[_staker]) {
-                for (uint256 j; j < lpTokens.length; ) {
-                    if (!isLpToken[_staker]) {
-                        lpBalance += ILpToken(lpTokens[j]).balanceOf(_staker);
-                    }
-                    unchecked { ++j;}
-                }
-                /* i REALLY hope this  wont break everything
-                if (lpBalance == 0) {
-                    hasLpTokens[_staker] = false;
-                }
-                */
+            if (!isLpToken[_staker]) {
+                lpBalance += get_user_lp_tokens(_staker);
             }
 
             uint256 stakerDntBalance = distr.getUserDntBalanceInUtil(
