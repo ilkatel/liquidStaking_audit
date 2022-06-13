@@ -345,9 +345,9 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
 
         require(utilityDB[utilityId[_utility]].isActive == true, "Invalid utility!");
 
-        _addDntToUser(_dnt, users[_to].userDnts);
-        _addUtilityToUser(_utility, users[_to].userUtilities);
-        _addUtilityToUser(_utility, users[_to].dnt[_dnt].userUtils);
+        // _addDntToUser(_dnt, users[_to].userDnts);
+        // _addUtilityToUser(_utility, users[_to].userUtilities);
+        // _addUtilityToUser(_utility, users[_to].dnt[_dnt].userUtils);
 
         users[_to].dnt[_dnt].dntInUtil[_utility] += _amount;
         users[_to].dnt[_dnt].dntLiquid += _amount;
@@ -439,13 +439,13 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         users[_account].dnt[_dnt].dntInUtil[_utility] -= _amount;
         users[_account].dnt[_dnt].dntLiquid -= _amount;
 
-        if (users[_account].dnt[_dnt].dntInUtil[_utility] == 0) {
-            _removeUtilityFromUser(_utility, users[_account].userUtilities);
-            _removeUtilityFromUser(_utility, users[_account].dnt[_dnt].userUtils);
-        }
-        if (users[_account].dnt[_dnt].dntLiquid == 0) {
-            _removeDntFromUser(_dnt, users[_account].userDnts);
-        }
+        // if (users[_account].dnt[_dnt].dntInUtil[_utility] == 0) {
+        //     _removeUtilityFromUser(_utility, users[_account].userUtilities);
+        //     _removeUtilityFromUser(_utility, users[_account].dnt[_dnt].userUtils);
+        // }
+        // if (users[_account].dnt[_dnt].dntLiquid == 0) {
+        //     _removeDntFromUser(_dnt, users[_account].userDnts);
+        // }
     }
 
     // @notice                         removes utility string from user array of utilities
