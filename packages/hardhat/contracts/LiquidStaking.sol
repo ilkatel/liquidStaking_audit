@@ -370,7 +370,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     // @notice stake native tokens, receive equal amount of DNT
-    function stake() external payable updateAll {
+    function stake() external payable updateAll calcReward {
         Stake storage s = stakes[msg.sender];
         uint256 era = current_era();
         uint256 val = msg.value;
@@ -392,7 +392,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // @notice unstake tokens from app, loose DNT
     // @param  [uint256] _amount => amount of tokens to unstake
     // @param  [bool] _immediate => receive tokens from unstaking pool, create a withdrawal otherwise
-    function unstake(uint256 _amount, bool _immediate) external updateAll {
+    function unstake(uint256 _amount, bool _immediate) external updateAll calcReward {
         uint256 userDntBalance = distr.getUserDntBalanceInUtil(
             msg.sender,
             utilName,
@@ -435,7 +435,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice claim rewards by user
     // @param  [uint256] _amount => amount of claimed reward
-    function claim(uint256 _amount) external updateAll {
+    function claim(uint256 _amount) external updateAll calcReward {
         require(rewardPool >= _amount, "Rewards pool drained!");
         require(
             rewardsByAddress[msg.sender] >= _amount,
@@ -450,7 +450,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice finish previously opened withdrawal
     // @param  [uint256] _id => withdrawal index
-    function withdraw(uint256 _id) external updateAll {
+    function withdraw(uint256 _id) external updateAll calcReward {
         Withdrawal storage w = withdrawals[msg.sender][_id];
         uint256 val = w.val;
         uint256 era = current_era();
