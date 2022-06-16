@@ -17,6 +17,7 @@ import "../libs/@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol
 import "../libs/@openzeppelin/contracts/access/Ownable.sol";
 import "../libs/@openzeppelin/contracts/security/Pausable.sol";
 import "../libs/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "../libs/@openzeppelin/contracts/access/AccessControl.sol";
 
 interface INDistributor {
     function transferDnt(address, address, uint256, string memory, string memory) external;
@@ -35,15 +36,17 @@ interface INDistributor {
  * - Permits (gasless allowance)
  * - Snapshots (ability to store shnapshots of balances that can be retrieved later)
  */
- contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit {
+ contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit, AccessControl {
 
+     bytes32 public constant SNAPSHOT_ROLE = keccak256("SNAPSHOT_ROLE");
      INDistributor distributor;
 
      // @notice      contract constructor
      // @param       [address] _distributor => DNT distributor contract address (will become the owner)
-     constructor(address _distributor) ERC20("Shibuya Note", "nSBY") ERC20Permit("Shibuya Note") {
+     constructor(address _distributor, address _liquidStaking) ERC20("Shibuya Note", "nSBY") ERC20Permit("Shibuya Note") {
          transferOwnership(_distributor);
          distributor = INDistributor(_distributor);
+         _setupRole(SNAPSHOT_ROLE, _liquidStaking);
      }
 
      // @param       issue DNT token
@@ -61,8 +64,9 @@ interface INDistributor {
      }
 
      // @param       create snapshot of balances
-     function snapshot() public onlyOwner {
-         _snapshot();
+     function snapshot() external returns (uint256) {
+         require(hasRole(SNAPSHOT_ROLE, msg.sender), "Forbidden");
+         return _snapshot();
      }
 
      // @param       pause the token
@@ -85,24 +89,7 @@ interface INDistributor {
          override(ERC20, ERC20Snapshot)
      {
          super._beforeTokenTransfer(from, to, amount);
+         distributor.transferDnt(from, to, amount, "LiquidStaking", "nSBY");
      }
 
-     function transfer(address to, uint256 amount) public override returns (bool) {
-         address from = _msgSender();
-         distributor.transferDnt(from, to, amount, "LiquidStaking", "nSBY");
-         _transfer(from, to, amount);
-         return true;
-     }
-
-     function transferFrom(
-         address from,
-         address to,
-         uint256 amount
-     ) public override returns (bool) {
-         address spender = _msgSender();
-         _spendAllowance(from, spender, amount);
-         distributor.transferDnt(from, to, amount, "LiquidStaking", "nSBY");
-         _transfer(from, to, amount);
-         return true;
-     }
  }
