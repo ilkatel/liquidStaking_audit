@@ -12,7 +12,9 @@ Clone the source code, install dependencies.
 ```$npm install```
 
 See **Astar Cheatsheet.md** to setup local Astar instance
+
 # Compile
+
 **Commands executed from the home directory**
 
 Check if everything compiles
@@ -22,6 +24,7 @@ Check if everything compiles
 ```$npx hardhat compile```
 
 # Deploy
+
 **Commands executed from the ```algem/packages/hardhat``` directory**
 
 Deploy contracts with this command, where ```CONTRACT_NAME``` derived from the desired contract and ```NETWORK_NAME``` can be found in ```hardhat.config.js```
@@ -38,17 +41,21 @@ For example, you want to deploy nSBY to Shibuya testnet:
 * Currently there are issues with passing arguments to upgradeable contracts via ```contract-arguments``` so ```nDistributor``` and ```LiquidStaking``` recieve them directly from the deploy script.
 
 # Post-deploy routine
+
 **NDistributor**
 * ```addDnt("nSBY", address)``` pass NSBY addr
 * ```addUtility("LiquidStaking")```
 * ```addManager(address)``` pass Liquid Staking proxy addr
 * ```addManager(address)``` pass NSBY addr
 * ```setLiquidStaking(address)``` pass Liquid Staking proxy addr
+
 **LiquidStaking**
 * ```setup()```
 * ```setDistr(address)``` pass NDistributor proxy addr
 * ```setDntToken(address)``` pass NSBY addr
+
 # Test
+
 *Work in progress*
 
 
