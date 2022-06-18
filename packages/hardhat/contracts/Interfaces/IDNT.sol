@@ -9,7 +9,7 @@ interface IDNT {
   function        pause() external;
   function        unpause() external;
   function        transferOwnership(address to) external;
-  function        balanceOf(address account) external returns(uint256);
+  function        balanceOf(address account) external view returns(uint256);
   function        balanceOfAt(address account, uint256 snapshotId) external view returns (uint256);
 
   function        name() external view returns (string memory);
@@ -19,5 +19,5 @@ interface IDNT {
   function        transfer(address _to, uint256 _value) external returns (bool success);
   function        transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
   function        approve(address _spender, uint256 _value) external returns (bool success);
-  function        allowance(address _owner, address _spender) external returns (uint256 remaining);
+  function        allowance(address _owner, address _spender) external view returns (uint256 remaining);
 }
