@@ -36,7 +36,7 @@ interface INDistributor {
  * - Permits (gasless allowance)
  * - Snapshots (ability to store shnapshots of balances that can be retrieved later)
  */
- contract NASTR is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit, AccessControl {
+ contract NSBY is ERC20, ERC20Burnable, ERC20Snapshot, Ownable, Pausable, ERC20Permit, AccessControl {
 
      bytes32 public constant SNAPSHOT_ROLE = keccak256("SNAPSHOT_ROLE");
      INDistributor distributor;
