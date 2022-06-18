@@ -19,8 +19,8 @@ interface ILiquidStaking {
     function hasLpToken(address) external view returns(bool);
     function addToLpOwners(address) external;
     function stakersFirstEra(address) external view returns(uint);
-    function current_era() external view returns(uint);
-    function set_first_era(address _staker, uint _era) external;
+    function currentEra() external view returns(uint);
+    function setFirstEra(address _staker, uint _era) external;
 }
 
 /*
@@ -510,7 +510,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         // add it to list if not
         if (!liquidStaking.isStaker(_to)) {
             liquidStaking.addStaker(_to);
-            liquidStaking.set_first_era(_to, liquidStaking.current_era());
+            liquidStaking.setFirstEra(_to, liquidStaking.currentEra());
         }
 
         removeTransferDnt(_from, _amount, _utility, _dnt);
@@ -610,3 +610,4 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
        liquidStaking = ILiquidStaking(_liquidStaking);
    }
 }
+
