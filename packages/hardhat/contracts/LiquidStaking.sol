@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./interfaces/DappsStaking.sol";
 import "./nDistributor.sol";
