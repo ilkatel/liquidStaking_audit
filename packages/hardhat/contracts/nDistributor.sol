@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
 import "../libs/@openzeppelin/contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "./interfaces/IDNT.sol";
 
