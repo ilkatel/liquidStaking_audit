@@ -11,13 +11,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "../libs/@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "../libs/@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
-import "../libs/@openzeppelin/contracts/access/Ownable.sol";
-import "../libs/@openzeppelin/contracts/security/Pausable.sol";
-import "../libs/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
-import "../libs/@openzeppelin/contracts/access/AccessControl.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/ERC20.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/Ownable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/security/Pausable.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/AccessControl.sol";
 
 interface INDistributor {
     function transferDnt(address, address, uint256, string memory, string memory) external;
