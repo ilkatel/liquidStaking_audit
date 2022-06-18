@@ -12,8 +12,8 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId}) => {
     const chainId = await getChainId();
 
     const contract = await ethers.getContractFactory(CONTRACT_NAME);
-    //const instance = await upgrades.deployProxy(contract, ["0xAB299124383f8419ebC8B4f3cb70d15e6602252D"], { deployer });
-    const instance = await upgrades.upgradeProxy("0x0CE2650ff4cD47be42debdbEc5De47BFd0e1E4F0", contract)
+    const instance = await upgrades.deployProxy(contract, { deployer });
+    //const instance = await upgrades.upgradeProxy(/* deployed proxy addr here */, contract)
     await instance.deployed();
     console.log(CONTRACT_NAME + " deployed to: " + instance.address);
 };
