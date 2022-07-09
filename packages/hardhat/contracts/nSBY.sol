@@ -11,13 +11,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/ERC20.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/Ownable.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/security/Pausable.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
-import "../libs/@openzeppelin/contracts-upgradeable/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface INDistributor {
     function transferDnt(address, address, uint256, string memory, string memory) external;
@@ -43,10 +43,9 @@ interface INDistributor {
 
      // @notice      contract constructor
      // @param       [address] _distributor => DNT distributor contract address (will become the owner)
-     constructor(address _distributor, address _liquidStaking) ERC20("Shibuya Note", "nSBY") ERC20Permit("Shibuya Note") {
+     constructor(address _distributor) ERC20("Shibuya Note", "nSBY") ERC20Permit("Shibuya Note") {
          transferOwnership(_distributor);
          distributor = INDistributor(_distributor);
-         _setupRole(SNAPSHOT_ROLE, _liquidStaking);
      }
 
      // @param       issue DNT token
@@ -89,7 +88,9 @@ interface INDistributor {
          override(ERC20, ERC20Snapshot)
      {
          super._beforeTokenTransfer(from, to, amount);
-         distributor.transferDnt(from, to, amount, "LiquidStaking", "nSBY");
+         if (from != address(0)) {
+             distributor.transferDnt(from, to, amount, "LiquidStaking", "nSBY");
+         }
      }
 
  }
