@@ -17,3 +17,7 @@ Simply add new network
 * **RPC URL:** http://80.78.24.17:9933
 * **Chain ID:** 4369
 * **Token symbol:** ASTL
+
+## Coinz
+
+Painful part is about getting [coins](https://github.com/Wevelll/algem/blob/main/Astar%20cheatsheet.md#local-contract-deployment), just use our instances described above.
