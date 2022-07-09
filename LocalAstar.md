@@ -1,6 +1,13 @@
 # Local astar
 
-You can view the network details at http://80.78.24.17/
+Services:
+* http://80.78.24.17:80/ - **polkadot.js**
+* http://80.78.24.17:8080/ - **portal.astar**
+* http://80.78.24.17:3000/ - **algem**
+
+* http://80.78.24.17:9933/ - **http RPC**
+* ws://80.78.24.17:9944/ - **websocket RPC**
+
 To add custom network paste ws://80.78.24.17:9944 into user endpoint field
 
 ## Metamask
@@ -10,3 +17,7 @@ Simply add new network
 * **RPC URL:** http://80.78.24.17:9933
 * **Chain ID:** 4369
 * **Token symbol:** ASTL
+
+## Coinz
+
+Painful part is about getting [coins](https://github.com/Wevelll/algem/blob/main/Astar%20cheatsheet.md#local-contract-deployment), just use our instances described above.
