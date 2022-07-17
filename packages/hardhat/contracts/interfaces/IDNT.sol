@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.4;
 
 // @notice DNT token contract interface
 interface IDNT {
@@ -11,6 +11,7 @@ interface IDNT {
   function        transferOwnership(address to) external;
   function        balanceOf(address account) external view returns(uint256);
   function        balanceOfAt(address account, uint256 snapshotId) external view returns (uint256);
+  function        totalSupplyAt(uint256 snapshotId) external view returns (uint256);
 
   function        name() external view returns (string memory);
   function        symbol() external view returns (string memory);

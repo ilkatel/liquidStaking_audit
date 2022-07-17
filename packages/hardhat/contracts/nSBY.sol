@@ -9,7 +9,7 @@
 // rinkeby addr: 0xb82F0bBd0B3285050529Db3D02E8f2D0D1343E5E
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
@@ -51,14 +51,14 @@ interface INDistributor {
      // @param       issue DNT token
      // @param       [address] to => token reciever
      // @param       [uint256] amount => amount of tokens to issue
-     function mintNote(address to, uint256 amount) public onlyOwner {
+     function mintNote(address to, uint256 amount) external onlyOwner {
          _mint(to, amount);
      }
 
      // @param       destroy DNT token
      // @param       [address] to => token holder to burn from
      // @param       [uint256] amount => amount of tokens to burn
-     function burnNote(address account, uint256 amount) public onlyOwner {
+     function burnNote(address account, uint256 amount) external onlyOwner {
          _burn(account, amount);
      }
 
@@ -69,12 +69,12 @@ interface INDistributor {
      }
 
      // @param       pause the token
-     function pause() public onlyOwner {
+     function pause() external onlyOwner {
          _pause();
      }
 
      // @param       resume token if paused
-     function unpause() public onlyOwner {
+     function unpause() external onlyOwner {
          _unpause();
      }
 
