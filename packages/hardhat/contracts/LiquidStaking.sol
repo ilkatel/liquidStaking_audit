@@ -83,16 +83,25 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     mapping(address => uint) public totalUserRewards;
     mapping(address => address) public lpHandlers;
 
-    uint public eraShotsLimit = 10;
+    uint public eraShotsLimit;
     uint public lastClaimed;
     uint public minStakeAmount;
-    uint private sum2unstake;
+    uint public sum2unstake;
+    address public proxyAddr;
+    bool public isUnstakes;
 
     event Staked(address indexed user, uint val);
     event Unstaked(address indexed user, uint amount, bool immediate);
     event Withdrawn(address indexed user, uint val);
     event Claimed(address indexed user, uint amount);
     event UpdateError(string indexed reason);
+
+    // events for events handle
+    event ClaimStakerError(address indexed user, uint indexed era);
+    event UnbondAndUnstakeError(uint indexed sum2unstake, uint indexed era);
+    event WithdrawUnbondedError(uint indexed_era);
+    event ClaimDappError(uint indexed amount, uint indexed era);
+    event BondAndStakeError(uint indexed value, uint indexed era);
 
     using AddressUpgradeable for address payable;
 
@@ -224,7 +233,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         // checks if _user haven't shots in era yet
         if (usersShotsPerEra[_user][era].length == 0) {
 
-            // checks if _user is first staker in the list
+            // checks if current era not claimed yet
             // thus we get the conditions for very first shot in the era
             // then get unclaimed staker rewards and write its to state
             if (lastClaimed != era) {
@@ -234,22 +243,29 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
                 // get unclaimed rewards
                 for (uint i; i < numOfUnclaimedEras; i++) {
                     try DAPPS_STAKING.claim_staker(address(this)) {}
-                    catch Error(string memory reason) {
-                        emit UpdateError(reason);
+                    catch {
+                        emit ClaimStakerError(_user, i);
                     }
                 }
 
                 lastClaimed = era;
                 uint balAfter = address(this).balance;
-                uint coms = (balAfter - balBefore) / 100; // 1% comission to revenue pool
+                uint coms = (balAfter - balBefore) / 100; // 1% comission to revenue and unstaking pools
                 eraStakerReward[era].val += balAfter - balBefore - coms; // rewards to share between users
-                eraRevenue[era].val += coms;
-                totalRevenue += coms;
+                rewardPool += eraStakerReward[era].val;
+                totalRevenue += coms * 9 / 10; // 0.9% of era rewards goes to revenue pool
+                unstakingPool += coms / 10; // 0.1% of era rewards goes to unstaking pool
             }
 
             uint[] memory arr = usersShotsPerEra[_user][era - 1];
             uint userLastEraRewards = arr.length > 0 ? findMedium(arr) * eraStakerReward[era].val / 10**18 : 0;
-            totalUserRewards[_user] += userLastEraRewards;
+
+            // cutting comission part
+            if (userLastEraRewards >= 10**16) {
+                totalUserRewards[_user] += userLastEraRewards / 10**16 * 10**16;
+            } else {
+                totalUserRewards[_user] += userLastEraRewards;
+            }
         }
 
         uint nBal = distr.getUserDntBalanceInUtil(_user, _util, _dnt);
@@ -272,7 +288,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice ustake tokens from not yet updated eras
     // @param  [uint] _era => latest era to update
-    function globalUnstake() private {
+    function globalUnstake() public {
         uint era = currentEra();
 
         // checks if enough time has passed
@@ -284,57 +300,43 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             try DAPPS_STAKING.unbond_and_unstake(address(this), uint128(sum2unstake)) {
                 sum2unstake = 0;
                 lastUnstaked = era;
+                isUnstakes = true;
             }
-            catch Error(string memory reason) {
-                require(keccak256(abi.encodePacked(reason)) != keccak256(abi.encodePacked("TooManyUnlockingChunks")), "Too many chunks");
-                emit UpdateError(reason);
+            catch {
+                emit UnbondAndUnstakeError(sum2unstake, era);
             }
         }
     }
 
     // @notice withdraw unbonded tokens
     // @param  [uint] _era => desired era
-    function globalWithdraw(uint _era) private {
-        bool isUnstaked;
-
-        // checks if there is unstaked eras
-        for (uint i = lastUpdated + 1; i <= _era; ) {
-            if (eraUnstaked[i - withdrawBlock].val != 0) {
-                isUnstaked = true;
-                break;
-            }
-            unchecked { ++i; }
-        }
-
-        uint p = address(this).balance;
+    function globalWithdraw(uint _era) public {
+        uint balBefore = address(this).balance;
 
         // if there is unstaked eras, withdraw unbonded
         // and reset all eraUnstaked
-        if (isUnstaked) {
+        if (isUnstakes) {
             try DAPPS_STAKING.withdraw_unbonded() {
-                for (uint i = lastUpdated + 1; i <= _era; ) {
-                    if (eraUnstaked[i - withdrawBlock].val != 0) {
-                        eraUnstaked[i - withdrawBlock].val = 0;
-                    }
-                    unchecked { ++i; }
-                }
-            } catch Error(string memory reason) {
-                require(keccak256(abi.encodePacked(reason)) == keccak256(abi.encodePacked("NothingToWithdraw")), "Error with withdraw_unbonded");
-                emit UpdateError(reason);
+                isUnstakes = false;
             }
+            catch {
+                emit WithdrawUnbondedError(_era);
+            }
+
         }
-        uint a = address(this).balance;
-        unbondedPool += a - p;
+        uint balAfter = address(this).balance;
+        unbondedPool += balAfter - balBefore;
     }
 
     // @notice claim dapp rewards, transferred to dapp owner
     // @param  [uint] _era => desired era number
-    function claimDapp(uint _era) private {
+    function claimDapp(uint _era) public {
         for (uint i = lastUpdated + 1; i <= _era; ) {
-            try DAPPS_STAKING.claim_dapp(address(this), uint128(_era)) {}
-            catch Error(string memory reason) {
-                require(keccak256(abi.encodePacked(reason)) == keccak256(abi.encodePacked("AlreadyClaimedInThisEra")), "Error with withdraw_unbonded");
-                emit UpdateError(reason);
+            if (eraStakerReward[i].val > 0) {
+                try DAPPS_STAKING.claim_dapp(address(this), uint128(_era)) {}
+                catch {
+                    emit ClaimDappError(eraStakerReward[i].val, i);
+                }
             }
             unchecked { ++i; }
         }
@@ -378,8 +380,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         distr.issueDnt(msg.sender, val, utilName, DNTname);
 
         try DAPPS_STAKING.bond_and_stake(address(this), uint128(val)) {}
-        catch Error(string memory reason) {
-            revert(reason);
+        catch {
+            emit BondAndStakeError(val, era);
         }
 
         emit Staked(msg.sender, val);
@@ -418,7 +420,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             // get liquidity from unstaking pool
             require(unstakingPool >= _amount, "Unstaking pool drained!");
             uint fee = _amount / 100; // 1% immediate unstaking fee
-            eraRevenue[era].val += fee;
             totalRevenue += fee;
             unstakingPool -= _amount;
             payable(msg.sender).sendValue(_amount - fee);
@@ -482,30 +483,16 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         isStaker[_addr] = true;
     }
 
-    // @notice fill pools with reward comissions etc
-    // @param  [uint] _era => desired era
-    function fillPools(uint _era) private {
-        // iterate over non-processed eras
-        for (uint i = lastUpdated + 1; i <= _era; ) {
-            eraRevenue[i].done = true;
-            if (eraRevenue[i].val > 0) {
-                unstakingPool += eraRevenue[i].val / 10; // 10% of revenue goes to unstaking pool
-                totalRevenue -= eraRevenue[i].val / 10;
-                eraRevenue[i].val -= eraRevenue[i].val / 10;
-            }
-            unchecked {
-                ++i;
-            }
-        }
-
-        eraStakerReward[_era].done = true;
-        rewardPool += eraStakerReward[_era].val;
-    }
-
     // @notice manually fill the unbonded pool
     function fillUnbonded() external payable {
         require(msg.value > 0, "Provide some value!");
         unbondedPool += msg.value;
+    }
+
+    // @notice utility func for filling reward pool manually
+    function fillRewardPool() external payable {
+        require(msg.value > 0, "Provide some value!");
+        rewardPool += msg.value;
     }
 
     // @notice manually fill the unstaking pool
@@ -523,7 +510,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function updates(uint _era) private {
         globalWithdraw(_era);
         claimDapp(_era);
-        fillPools(_era);
         globalUnstake();
         lastUpdated = _era;
     }
@@ -533,4 +519,36 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         totalRevenue -= _amount;
         payable(msg.sender).sendValue(_amount);
     }
+
+    // it is a question remove this functions or not
+
+    // sets destination of rewards
+    // 0 - freeBalance
+    // 1 - to restake
+    function setRewardsDestination(uint _idx) external onlyRole(MANAGER) {
+        DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination(_idx));
+    }
+
+    // everything below needs to be removed =>
+    function claimStaker() external onlyRole(MANAGER) {
+        DAPPS_STAKING.claim_staker(address(this));
+    }
+
+    function withdrawUnbonded() external onlyRole(MANAGER) {
+        DAPPS_STAKING.withdraw_unbonded();
+    }
+
+    function claimDapp(uint128 era) external onlyRole(MANAGER) {
+        DAPPS_STAKING.claim_dapp(address(this), era);
+    }
+
+    function unbondAndUnstake(uint128 sum) external onlyRole(MANAGER) {
+        DAPPS_STAKING.unbond_and_unstake(address(this), sum);
+    }
+
+    function bondAndStake(uint128 sum) external onlyRole(MANAGER) {
+        DAPPS_STAKING.bond_and_stake(address(this), sum);
+    }
+
+
 }
