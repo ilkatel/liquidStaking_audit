@@ -288,7 +288,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice ustake tokens from not yet updated eras
     // @param  [uint] _era => latest era to update
-    function globalUnstake() public {
+    function globalUnstake() private {
         uint era = currentEra();
 
         // checks if enough time has passed
@@ -310,7 +310,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice withdraw unbonded tokens
     // @param  [uint] _era => desired era
-    function globalWithdraw(uint _era) public {
+    function globalWithdraw(uint _era) private {
         uint balBefore = address(this).balance;
 
         // if there is unstaked eras, withdraw unbonded
@@ -330,7 +330,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice claim dapp rewards, transferred to dapp owner
     // @param  [uint] _era => desired era number
-    function claimDapp(uint _era) public {
+    function claimDapp(uint _era) private {
         for (uint i = lastUpdated + 1; i <= _era; ) {
             if (eraStakerReward[i].val > 0) {
                 try DAPPS_STAKING.claim_dapp(address(this), uint128(_era)) {}
@@ -520,35 +520,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         payable(msg.sender).sendValue(_amount);
     }
 
-    // it is a question remove this functions or not
-
-    // sets destination of rewards
-    // 0 - freeBalance
-    // 1 - to restake
+    // @notice sets the direction of rewards
+    // @params  0 - freeBalance
+    // @params  1 - to restake
     function setRewardsDestination(uint _idx) external onlyRole(MANAGER) {
         DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination(_idx));
     }
-
-    // everything below needs to be removed =>
-    function claimStaker() external onlyRole(MANAGER) {
-        DAPPS_STAKING.claim_staker(address(this));
-    }
-
-    function withdrawUnbonded() external onlyRole(MANAGER) {
-        DAPPS_STAKING.withdraw_unbonded();
-    }
-
-    function claimDapp(uint128 era) external onlyRole(MANAGER) {
-        DAPPS_STAKING.claim_dapp(address(this), era);
-    }
-
-    function unbondAndUnstake(uint128 sum) external onlyRole(MANAGER) {
-        DAPPS_STAKING.unbond_and_unstake(address(this), sum);
-    }
-
-    function bondAndStake(uint128 sum) external onlyRole(MANAGER) {
-        DAPPS_STAKING.bond_and_stake(address(this), sum);
-    }
-
 
 }
