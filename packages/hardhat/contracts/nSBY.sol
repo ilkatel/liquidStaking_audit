@@ -49,7 +49,7 @@ interface INDistributor {
      // @notice      contract constructor
      // @param       [address] _distributor => DNT distributor contract address (will become the owner)
      function initialize(address _distributor) public initializer {
-        __ERC20_init("Shibuya Note", "NSBY");
+        __ERC20_init("Shibuya Note", "nASTR");
         __ERC20Permit_init("Shibuya Note");
         _grantRole(DISTR_ROLE, _distributor);
         distributor = INDistributor(_distributor);
@@ -102,7 +102,7 @@ interface INDistributor {
      {
          super._beforeTokenTransfer(from, to, amount);
          if (from != address(0)) {
-             distributor.transferDnt(from, to, amount, "LiquidStaking", "NSBY");
+             distributor.transferDnt(from, to, amount, "LiquidStaking", "nASTR");
          }
      }
 
