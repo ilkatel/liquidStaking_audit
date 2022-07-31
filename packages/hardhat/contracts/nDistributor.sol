@@ -400,7 +400,8 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         uint256 _amount,
         string memory _utility,
         string memory _dnt
-    ) external onlyRole(MANAGER) dntInterface(_dnt) {
+    ) external dntInterface(_dnt) {
+        require(msg.sender == address(liquidStaking), "Only for LiquidStaking");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
             "Invalid utility!"
@@ -514,9 +515,6 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
             users[_account].dnt[_dnt].dntLiquid >= _amount,
             "Not enough liquid DNT!"
         );
-
-        users[_account].dnt[_dnt].dntInUtil[_utility] -= _amount;
-        users[_account].dnt[_dnt].dntLiquid -= _amount;
 
         if (users[_account].dnt[_dnt].dntInUtil[_utility] == 0) {
             _removeUtilityFromUser(_utility, users[_account].userUtilities);
@@ -777,6 +775,7 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        require(address(liquidStaking) == address(0), "Already set");
         liquidStaking = ILiquidStaking(_liquidStaking);
     }
 }
