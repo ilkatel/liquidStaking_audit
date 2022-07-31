@@ -87,7 +87,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint public lastClaimed;
     uint public minStakeAmount;
     uint public sum2unstake;
-    address public proxyAddr;
     bool public isUnstakes;
 
     event Staked(address indexed user, uint val);
