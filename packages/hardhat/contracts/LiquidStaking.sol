@@ -250,11 +250,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
                 lastClaimed = era;
                 uint balAfter = address(this).balance;
-                uint coms = (balAfter - balBefore) / 100; // 1% comission to revenue and unstaking pools
+                uint coms = (balAfter - balBefore) / 10; // 10% comission to revenue and unstaking pools
                 eraStakerReward[era].val += balAfter - balBefore - coms; // rewards to share between users
                 rewardPool += eraStakerReward[era].val;
-                totalRevenue += coms * 9 / 10; // 0.9% of era rewards goes to revenue pool
-                unstakingPool += coms / 10; // 0.1% of era rewards goes to unstaking pool
+                totalRevenue += coms * 9 / 10; // 9% of era rewards goes to revenue pool
+                unstakingPool += coms / 10; // 1% of era rewards goes to unstaking pool
             }
 
             uint[] memory arr = usersShotsPerEra[_user][era - 1];
@@ -520,9 +520,9 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         payable(msg.sender).sendValue(_amount);
     }
 
-    // @notice sets the direction of rewards
-    // @params  0 - freeBalance
-    // @params  1 - to restake
+    // sets destination of rewards
+    // 0 - freeBalance
+    // 1 - to restake
     function setRewardsDestination(uint _idx) external onlyRole(MANAGER) {
         DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination(_idx));
     }
