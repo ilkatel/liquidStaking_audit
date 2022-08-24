@@ -5,14 +5,18 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./interfaces/DappsStaking.sol";
-import "./nDistributor.sol";
+import "./NDistributor.sol";
 import "./interfaces/IDNT.sol";
+import "./interfaces/ILpHandler.sol";
 
-interface ILpHandler {
-    function calc(address) external view returns (uint);
-}
-
-//shibuya: 0xD9E81aDADAd5f0a0B59b1a70e0b0118B85E2E2d3
+/* @notice Liquid staking implementation contract
+ *
+ * https://docs.algem.io/algem-protocol/liquid-staking
+ *
+ * Features:
+ * - Initializable
+ * - AccessControlUpgradeable
+ */
 contract LiquidStaking is Initializable, AccessControlUpgradeable {
     DappsStaking public constant DAPPS_STAKING =
         DappsStaking(0x0000000000000000000000000000000000005001);
@@ -33,12 +37,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // @notice distributor data
     NDistributor public distr;
 
-    // @notice core stake struct and stakes per user, remove with next proxy update. All done via distr
-    struct Stake {
+    struct Stake { // <== unused and will removed with next proxy update
         uint totalBalance;
         uint eraStarted;
     }
-    mapping(address => Stake) public stakes;
+    mapping(address => Stake) public stakes; // <== unused and will removed with next proxy update
 
     // @notice user requested withdrawals
     struct Withdrawal {
@@ -53,7 +56,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         bool done;
         uint val;
     }
-    mapping(uint => eraData) public eraUnstaked; // total tokens unstaked per era
+    mapping(uint => eraData) public eraUnstaked; // <== unused and will removed with next proxy update
     mapping(uint => eraData) public eraStakerReward; // total staker rewards per era
     mapping(uint => eraData) public eraRevenue; // total revenue per era
 
@@ -70,7 +73,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint public lastUnstaked;
 
     // @notice handlers for work with LP tokens
-    //         for now supposed rate 1 dnt / 1 lpToken
     mapping(address => bool) public isLpToken;
     address[] public lpTokens;
 
@@ -87,7 +89,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint public lastClaimed;
     uint public minStakeAmount;
     uint public sum2unstake;
-    bool public isUnstakes;
+    bool public isUnstakes; // <== unused and will removed with next proxy update
+    uint public claimingTxLimit;
 
     event Staked(address indexed user, uint val);
     event Unstaked(address indexed user, uint amount, bool immediate);
@@ -96,13 +99,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     event UpdateError(string indexed reason);
 
     // events for events handle
-    event ClaimStakerError(address indexed user, uint indexed era);
-    event UnbondAndUnstakeError(uint indexed sum2unstake, uint indexed era);
-    event WithdrawUnbondedError(uint indexed_era);
-    event ClaimDappError(uint indexed amount, uint indexed era);
-    event BondAndStakeError(uint indexed value, uint indexed era);
+    event ClaimStakerError(uint indexed era);
+    event UnbondAndUnstakeError(uint indexed sum2unstake, uint indexed era, bytes indexed reason);
+    event WithdrawUnbondedError(uint indexed _era, bytes indexed reason);
+    event ClaimDappError(uint indexed amount, uint indexed era, bytes indexed reason);
 
     using AddressUpgradeable for address payable;
+    using AddressUpgradeable for address;
 
     // ------------------ INIT
     // -----------------------
@@ -112,9 +115,13 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         address _distrAddr,
         address _dntToken
     ) public initializer {
+        require(_distrAddr.isContract(), "_distrAddr should be contract address");
+        require(_dntToken.isContract(), "_dntToken should be contract address");
         uint era = DAPPS_STAKING.read_current_era() - 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER, msg.sender);
+        setMinStakeAmount(100*10**18);
+        setEraShotsLimit(15);
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
         DNTname = _DNTname;
         utilName = _utilName;
@@ -125,6 +132,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         lastStaked = era;
         lastUnstaked = era;
         lastClaimed = era;
+
+        claimingTxLimit = 5;
     }
 
     // ------------------ VIEWS
@@ -153,7 +162,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     }
 
     // @notice sets min stake amount
-    function setMinStakeAmount(uint _amount) external onlyRole(MANAGER) {
+    function setMinStakeAmount(uint _amount) public onlyRole(MANAGER) {
         minStakeAmount = _amount;
     }
 
@@ -177,6 +186,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice removing lp token address from list
     function removeLpToken(address _lp) external onlyRole(MANAGER) {
+        require(_lp.isContract(), "_lp should be contract address");
         require(isLpToken[_lp], "This LP token is not in the list");
         isLpToken[_lp] = false;
         for (uint i; i < lpTokens.length; i++) {
@@ -206,56 +216,67 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
                 return arr[len/2];
             }
         }
+        if (len % 2 == 0) return (arr[len/2] + arr[len/2 - 1])/2;
         return arr[len/2];
     }
 
     // @notice add amount to buffer until next era
     function addToBuffer(address _user, uint _amount) external onlyDistributor() {
+        require(_user != address(0), "Zero address alarm!");
         uint era = currentEra();
         buffer[_user][era] += _amount;
     }
 
     function setBuffer(address _user, uint _amount) external onlyDistributor() {
+        require(_user != address(0), "Zero address alarm");
         uint era = currentEra();
         buffer[_user][era] = _amount;
     }
 
-    function setEraShotsLimit(uint _limit) external onlyRole(MANAGER) {
+    function setEraShotsLimit(uint _limit) public onlyRole(MANAGER) {
         eraShotsLimit = _limit;
+    }
+
+    // @notice checks if current era not claimed yet
+    //         receives staker rewards for all unclaimed eras
+    //         this func is called at the beginning of each era
+    function claimRewards() external onlyRole(MANAGER) {
+        uint era = currentEra();
+        require(lastClaimed != era, "All rewards already claimed");
+
+        uint numOfUnclaimedEras = era - lastClaimed;
+        if (numOfUnclaimedEras > claimingTxLimit) {
+            numOfUnclaimedEras = claimingTxLimit;
+        }
+        uint balBefore = address(this).balance;
+
+        // get unclaimed rewards
+        for (uint i; i < numOfUnclaimedEras; i++) {
+            try DAPPS_STAKING.claim_staker(address(this)) {
+                lastClaimed += 1;
+            }
+            catch {
+                emit ClaimStakerError(lastClaimed + 1);
+            }
+        }
+
+        uint balAfter = address(this).balance;
+        uint coms = (balAfter - balBefore) / 10; // 10% comission to revenue and unstaking pools
+        eraStakerReward[era].val += balAfter - balBefore - coms; // rewards to share between users
+        rewardPool += eraStakerReward[era].val;
+        totalRevenue += coms * 9 / 10; // 9% of era rewards goes to revenue pool
+        unstakingPool += coms / 10; // 1% of era rewards goes to unstaking pool
     }
 
     // @notice saving information about users balances
     function eraShot(address _user, string memory _util, string memory _dnt) external onlyRole(MANAGER) {
         uint era = currentEra();
+        require(_user != address(0), "Zero address alarm!");
         require(usersShotsPerEra[_user][era].length <= eraShotsLimit, "Too much era shots");
+        require(era == lastClaimed, "Not all rewards received");
 
         // checks if _user haven't shots in era yet
         if (usersShotsPerEra[_user][era].length == 0) {
-
-            // checks if current era not claimed yet
-            // thus we get the conditions for very first shot in the era
-            // then get unclaimed staker rewards and write its to state
-            if (lastClaimed != era) {
-                uint numOfUnclaimedEras = era - lastClaimed;
-                uint balBefore = address(this).balance;
-
-                // get unclaimed rewards
-                for (uint i; i < numOfUnclaimedEras; i++) {
-                    try DAPPS_STAKING.claim_staker(address(this)) {}
-                    catch {
-                        emit ClaimStakerError(_user, i);
-                    }
-                }
-
-                lastClaimed = era;
-                uint balAfter = address(this).balance;
-                uint coms = (balAfter - balBefore) / 10; // 10% comission to revenue and unstaking pools
-                eraStakerReward[era].val += balAfter - balBefore - coms; // rewards to share between users
-                rewardPool += eraStakerReward[era].val;
-                totalRevenue += coms * 9 / 10; // 9% of era rewards goes to revenue pool
-                unstakingPool += coms / 10; // 1% of era rewards goes to unstaking pool
-            }
-
             uint[] memory arr = usersShotsPerEra[_user][era - 1];
             uint userLastEraRewards = arr.length > 0 ? findMedium(arr) * eraStakerReward[era].val / 10**18 : 0;
 
@@ -299,10 +320,9 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             try DAPPS_STAKING.unbond_and_unstake(address(this), uint128(sum2unstake)) {
                 sum2unstake = 0;
                 lastUnstaked = era;
-                isUnstakes = true;
             }
-            catch {
-                emit UnbondAndUnstakeError(sum2unstake, era);
+            catch (bytes memory reason) {
+                emit UnbondAndUnstakeError(sum2unstake, era, reason);
             }
         }
     }
@@ -312,17 +332,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     function globalWithdraw(uint _era) private {
         uint balBefore = address(this).balance;
 
-        // if there is unstaked eras, withdraw unbonded
-        // and reset all eraUnstaked
-        if (isUnstakes) {
-            try DAPPS_STAKING.withdraw_unbonded() {
-                isUnstakes = false;
-            }
-            catch {
-                emit WithdrawUnbondedError(_era);
-            }
-
+        try DAPPS_STAKING.withdraw_unbonded() {}
+        catch (bytes memory reason) {
+            emit WithdrawUnbondedError(_era, reason);
         }
+
         uint balAfter = address(this).balance;
         unbondedPool += balAfter - balBefore;
     }
@@ -333,8 +347,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         for (uint i = lastUpdated + 1; i <= _era; ) {
             if (eraStakerReward[i].val > 0) {
                 try DAPPS_STAKING.claim_dapp(address(this), uint128(_era)) {}
-                catch {
-                    emit ClaimDappError(eraStakerReward[i].val, i);
+                catch (bytes memory reason) {
+                    emit ClaimDappError(eraStakerReward[i].val, i, reason);
                 }
             }
             unchecked { ++i; }
@@ -344,7 +358,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     // -------------- USER FUNCS
     // -------------------------
 
-    // @notice updates global balances, stakes/unstakes etc
+    // @notice updates global balances
     modifier updateAll() {
         uint era = currentEra() - 1; // last era to update
         if (lastUpdated != era) {
@@ -360,16 +374,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice stake native tokens, receive equal amount of DNT
     function stake() external payable updateAll {
-        Stake storage s = stakes[msg.sender];
-        uint era = currentEra();
         uint val = msg.value;
 
         require(val >= minStakeAmount, "Not enough stake amount");
 
         totalBalance += val;
-
-        s.totalBalance += val;
-        s.eraStarted = s.eraStarted == 0 ? era : s.eraStarted;
 
         if (!isStaker[msg.sender]) {
             isStaker[msg.sender] = true;
@@ -378,10 +387,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
         distr.issueDnt(msg.sender, val, utilName, DNTname);
 
-        try DAPPS_STAKING.bond_and_stake(address(this), uint128(val)) {}
-        catch {
-            emit BondAndStakeError(val, era);
-        }
+        DAPPS_STAKING.bond_and_stake(address(this), uint128(val));
 
         emit Staked(msg.sender, val);
     }
@@ -395,7 +401,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             utilName,
             DNTname
         );
-        Stake storage s = stakes[msg.sender];
 
         require(userDntBalance >= _amount, "> Not enough nASTR!");
         require(_amount > 0, "Invalid amount!");
@@ -404,15 +409,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         sum2unstake += _amount;
         totalBalance -= _amount;
 
-        // check current stake balance for user
-        // set it to zero if not enough
-        // reduce else
-        if (s.totalBalance >= _amount) {
-            s.totalBalance -= _amount;
-        } else {
-            s.totalBalance = 0;
-            s.eraStarted = 0;
-        }
         distr.removeDnt(msg.sender, _amount, utilName, DNTname);
 
         if (_immediate) {
@@ -474,10 +470,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     // @notice add new staker and save balances
     // @param  [address] => user to add
-    function addStaker(address _addr, string memory _util, string memory _dnt) external onlyDistributor() {
+    function addStaker(address _addr) external onlyDistributor() {
         require(!isStaker[_addr], "Already staker");
-        uint stakerDntBalance = distr.getUserDntBalanceInUtil(_addr, _util, _dnt);
-        stakes[_addr].totalBalance = stakerDntBalance;
         stakers.push(_addr);
         isStaker[_addr] = true;
     }
@@ -519,11 +513,27 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         payable(msg.sender).sendValue(_amount);
     }
 
-    // sets destination of rewards
-    // 0 - freeBalance
-    // 1 - to restake
-    function setRewardsDestination(uint _idx) external onlyRole(MANAGER) {
-        DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination(_idx));
+    // @notice      disabled revoke ownership functionality
+    function revokeRole(bytes32 role, address account)
+        public
+        override
+        onlyRole(getRoleAdmin(role))
+    {
+        require(role != DEFAULT_ADMIN_ROLE, "Not allowed to revoke admin role");
+        _revokeRole(role, account);
+    }
+
+    // @notice      disabled revoke ownership functionality
+    function renounceRole(bytes32 role, address account) public override {
+        require(
+            account == _msgSender(),
+            "AccessControl: can only renounce roles for self"
+        );
+        require(
+            role != DEFAULT_ADMIN_ROLE,
+            "Not allowed to renounce admin role"
+        );
+        _revokeRole(role, account);
     }
 
 }
