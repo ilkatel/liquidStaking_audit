@@ -17,7 +17,7 @@ import "./interfaces/INDistributor.sol";
  * https://docs.algem.io/dnts
  *
  * Features:
- * - Initializable 
+ * - Initializable
  * - ERC20Upgradeable
  * - ERC20BurnableUpgradeable
  * - ERC20SnapshotUpgradeable
@@ -40,6 +40,11 @@ contract NASTR is
     INDistributor distributor;
 
     using AddressUpgradeable for address;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     // @notice      contract constructor
     // @param       [address] _distributor => DNT distributor contract address (will become the owner)

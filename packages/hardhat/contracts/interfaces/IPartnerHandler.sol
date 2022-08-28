@@ -2,6 +2,6 @@
 pragma solidity 0.8.4;
 
 
-interface ILpHandler {
+interface IPartnerHandler {
     function calc(address) external view returns (uint);
 }

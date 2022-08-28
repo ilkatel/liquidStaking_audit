@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "./interfaces/DappsStaking.sol";
 import "./NDistributor.sol";
 import "./interfaces/IDNT.sol";
-import "./interfaces/ILpHandler.sol";
+import "./interfaces/IPartnerHandler.sol";
 
 /* @notice Liquid staking implementation contract
  *
@@ -73,8 +73,8 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     uint public lastUnstaked;
 
     // @notice handlers for work with LP tokens
-    mapping(address => bool) public isLpToken;
-    address[] public lpTokens;
+    mapping(address => bool) public isLpToken; // <== unused and will removed with next proxy update
+    address[] public lpTokens; // <== unused and will removed with next proxy update
 
     mapping(uint => uint) public eraRewards;
 
@@ -83,14 +83,24 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
     mapping(address => mapping(uint => uint)) public buffer;
     mapping(address => mapping(uint => uint[])) public usersShotsPerEra;
     mapping(address => uint) public totalUserRewards;
-    mapping(address => address) public lpHandlers;
+    mapping(address => address) public lpHandlers; // <== unused and will removed with next proxy update
 
     uint public eraShotsLimit;
     uint public lastClaimed;
     uint public minStakeAmount;
     uint public sum2unstake;
     bool public isUnstakes; // <== unused and will removed with next proxy update
-    uint public claimingTxLimit;
+    uint public claimingTxLimit = 5;
+
+    uint8 public constant REVENUE_FEE = 9; // 9% fee on MANAGEMENT_FEE
+    uint8 public constant UNSTAKING_FEE = 1; // 1% fee on MANAGEMENT_FEE
+    uint8 public constant MANAGEMENT_FEE = 10; // 10% fee on staking rewards
+
+    // to partners will be added handlers and adapters. All handlers will be removed in future
+    mapping(address => bool) public isPartner;
+    mapping(address => uint) public partnerIdx;
+    address[] public partners;
+    uint public partnersLimit = 15;
 
     event Staked(address indexed user, uint val);
     event Unstaked(address indexed user, uint amount, bool immediate);
@@ -106,6 +116,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
 
     using AddressUpgradeable for address payable;
     using AddressUpgradeable for address;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     // ------------------ INIT
     // -----------------------
@@ -132,8 +147,6 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         lastStaked = era;
         lastUnstaked = era;
         lastClaimed = era;
-
-        claimingTxLimit = 5;
     }
 
     // ------------------ VIEWS
@@ -153,12 +166,14 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         return withdrawals[msg.sender];
     }
 
-    // @notice add lp token address and handler to calc nTokens share for users
-    function addPartner(address _lp, address _handler) external onlyRole(MANAGER) {
-        require(!isLpToken[_lp], "Allready added");
-        isLpToken[_lp] = true;
-        lpTokens.push(_lp);
-        lpHandlers[_lp] = _handler;
+    // @notice add partner address to calc nTokens share for users
+    function addPartner(address _partner) external onlyRole(MANAGER) {
+        require(!isPartner[_partner], "Allready added");
+        require(_partner != address(0), "Zero address alarm");
+        require(partners.length <= partnersLimit, "Partners limit reached");
+        isPartner[_partner] = true;
+        partners.push(_partner);
+        partnerIdx[_partner] = partners.length - 1;
     }
 
     // @notice sets min stake amount
@@ -166,36 +181,35 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         minStakeAmount = _amount;
     }
 
-    // @notice iterate by each lp token address and get user rewards from handlers
-    function getUserLpTokens(address _user) public view returns (uint) {
-        uint amount;
-        address[] memory _lpTokens = lpTokens;
-        if (_lpTokens.length == 0) {
-            return 0;
-        }
-        for (uint i; i < _lpTokens.length;) {
-            amount += ILpHandler(lpHandlers[_lpTokens[i]]).calc(_user);
-            unchecked { ++i; }
-        }
-        return amount;
+    // @notice sets max amount of partners
+    function setPartnersLimit(uint _value) external onlyRole(MANAGER) {
+        require(_value > 0, "Should be greater than zero");
+        require(_value != partnersLimit, "The number must be different");
+        partnersLimit = _value;
     }
 
-    function getLpTokens() external view returns (address[] memory) {
-        return lpTokens;
+    // @notice iterate by each partner address and get user rewards from handlers
+    function getUserLpTokens(address _user) public view returns (uint amount) {
+        if (partners.length == 0) return 0;
+        for (uint i; i < partners.length; i++) {
+            amount += IPartnerHandler(partners[i]).calc(_user);
+        }
     }
 
-    // @notice removing lp token address from list
-    function removeLpToken(address _lp) external onlyRole(MANAGER) {
-        require(_lp.isContract(), "_lp should be contract address");
-        require(isLpToken[_lp], "This LP token is not in the list");
-        isLpToken[_lp] = false;
-        for (uint i; i < lpTokens.length; i++) {
-            if (lpTokens[i] == _lp) {
-                lpTokens[i] = lpTokens[lpTokens.length - 1];
-                lpTokens.pop();
-                lpHandlers[_lp] = address(0);
-            }
-        }
+    // @notice gets the list of partners
+    function getPartners() external view returns (address[] memory) {
+        return partners;
+    }
+
+    // @notice removing partner address
+    function removePartner(address _partner) external onlyRole(MANAGER) {
+        require(_partner.isContract(), "Partner should be contract address");
+        require(isPartner[_partner], "This partner is not in the list");
+        isPartner[_partner] = false;
+        address lastPartner = partners[partners.length - 1];
+        uint idx = partnerIdx[_partner];
+        partners[idx] = lastPartner;
+        partnerIdx[lastPartner] = idx;
     }
 
     // @notice sorts the list in ascending order and return mean
@@ -261,11 +275,11 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
         }
 
         uint balAfter = address(this).balance;
-        uint coms = (balAfter - balBefore) / 10; // 10% comission to revenue and unstaking pools
+        uint coms = (balAfter - balBefore) / MANAGEMENT_FEE; // 10% comission to revenue and unstaking pools
         eraStakerReward[era].val += balAfter - balBefore - coms; // rewards to share between users
         rewardPool += eraStakerReward[era].val;
-        totalRevenue += coms * 9 / 10; // 9% of era rewards goes to revenue pool
-        unstakingPool += coms / 10; // 1% of era rewards goes to unstaking pool
+        totalRevenue += coms * REVENUE_FEE / 10; // 9% of era rewards goes to revenue pool
+        unstakingPool += coms * UNSTAKING_FEE / 10; // 1% of era rewards goes to unstaking pool
     }
 
     // @notice saving information about users balances
@@ -280,12 +294,7 @@ contract LiquidStaking is Initializable, AccessControlUpgradeable {
             uint[] memory arr = usersShotsPerEra[_user][era - 1];
             uint userLastEraRewards = arr.length > 0 ? findMedium(arr) * eraStakerReward[era].val / 10**18 : 0;
 
-            // cutting comission part
-            if (userLastEraRewards >= 10**16) {
-                totalUserRewards[_user] += userLastEraRewards / 10**16 * 10**16;
-            } else {
-                totalUserRewards[_user] += userLastEraRewards;
-            }
+            totalUserRewards[_user] += userLastEraRewards;
         }
 
         uint nBal = distr.getUserDntBalanceInUtil(_user, _util, _dnt);

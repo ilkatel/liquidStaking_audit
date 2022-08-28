@@ -1,3 +1,9 @@
+// SET-UP:
+// 1. Deploy nDistributor
+// 2. Deploy nASTR, pass distributor address as constructor arg (makes nDistributor the owner)
+// 3. Add nASTR DNT to Distributor
+// 4. Add manager (i.e. utility contract)
+
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
@@ -9,13 +15,21 @@ import "./interfaces/ILiquidStaking.sol";
 
 /*
  * @notice ERC20 DNT token distributor contract
- *
- * Features:
- * - Initializable
- * - AccessControlUpgradeable
  */
 contract NDistributor is Initializable, AccessControlUpgradeable {
+    // MODIFIERS
+    //
+    // -------------------------------------------------------------------------------------------------------
+    // ------------------------------- MODIFIERS
+    // -------------------------------------------------------------------------------------------------------
+
+    modifier dntInterface(string memory _dnt) {
+        _setDntInterface(_dnt);
+        _;
+    }
+
     // DECLARATIONS
+    //
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- USER MANAGMENT
     // -------------------------------------------------------------------------------------------------------
@@ -130,22 +144,17 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
 
     using AddressUpgradeable for address;
 
-    // MODIFIERS
+    // FUNCTIONS
     //
     // -------------------------------------------------------------------------------------------------------
-    // ------------------------------- MODIFIERS
+    // ------------------------------- Constructor
     // -------------------------------------------------------------------------------------------------------
-    modifier dntInterface(string memory _dnt) {
-        _setDntInterface(_dnt);
-        _;
-    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    // FUNCTIONS
     function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         owner = msg.sender;
@@ -235,6 +244,13 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- Asset managment (utilities and DNTs tracking)
     // -------------------------------------------------------------------------------------------------------
+
+    // @notice grants admin role to msg sender & initializes utilityDB & dntDB
+    // @dev    first element in mapping & non-existing entry both return 0
+    //         so we initialize it to avoid confusion
+    // @dev    "null" utility means tokens not connected to utility
+    //         these could be used in any utility
+    //         for example, after token trasfer, reciever will get "null" utility
 
     // @notice returns the list of all utilities
     function listUtilities() external view returns (string[] memory) {
@@ -415,8 +431,8 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
         internal
         onlyRole(MANAGER)
     {
-        require(dntDB[dntId[_dnt]].isActive == true, "Invalid DNT!");
 
+        require(dntDB[dntId[_dnt]].isActive == true, "Invalid DNT!");
         localUserDnts.push(_dnt);
     }
 
@@ -429,7 +445,6 @@ contract NDistributor is Initializable, AccessControlUpgradeable {
     ) internal onlyRole(MANAGER) {
         uint id = utilityId[_utility];
         require(utilityDB[id].isActive == true, "Invalid utility!");
-
         localUserUtilities.push(_utility);
     }
 
