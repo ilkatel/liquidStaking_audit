@@ -1,16 +1,16 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/ISiriusFarm.sol";
 import "./interfaces/ISiriusPool.sol";
 import "./interfaces/IDNT.sol";
 
-contract SiriusAdapter is Ownable {
+contract SiriusAdapter is OwnableUpgradeable {
 
-    using Address for address payable;
-    using Address for address;
+    using AddressUpgradeable for address payable;
+    using AddressUpgradeable for address;
 
     uint8 private idxNtoken;
     uint8 private idxToken;
@@ -41,7 +41,12 @@ contract SiriusAdapter is Ownable {
     event Claim(address indexed user, uint256 indexed amount);
     event HarvestRewards(address indexed user, uint256 indexed rewardsToHarvest);
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         ISiriusPool _pool,
         ISiriusFarm _farm,
         IDNT _lp,
@@ -49,7 +54,8 @@ contract SiriusAdapter is Ownable {
         IDNT _gauge,
         IDNT _srs,
         address _token
-    ) {
+    ) public initializer {
+        __Ownable_init();
         pool = _pool;
         farm = _farm;
         lp = _lp;
