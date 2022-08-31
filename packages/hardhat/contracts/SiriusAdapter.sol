@@ -72,7 +72,7 @@ contract SiriusAdapter is Ownable {
         _;
     }
 
-    // @notice To receive funds from pool contract
+    // @notice To receive funds from pool contrct
     receive() external payable {}
 
     // @notice It is not supposed that funds will be accumulated on the contract
