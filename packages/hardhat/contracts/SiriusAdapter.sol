@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/ISiriusFarm.sol";
 import "./interfaces/ISiriusPool.sol";
 import "./interfaces/IDNT.sol";
+import "./interfaces/IMinter.sol";
 
 contract SiriusAdapter is OwnableUpgradeable {
 
@@ -16,7 +17,9 @@ contract SiriusAdapter is OwnableUpgradeable {
     uint8 private idxToken;
 
     uint256 public accumulatedRewardsPerShare;
+    uint256 public revenuePool;
     uint256 private constant REWARDS_PRECISION = 1e12; // A big number to perform mul and div operations
+    uint256 public constant REVENUE_FEE = 10; // 10% of claimed rewards goes to revenue pool
 
     address public token;
 
@@ -33,6 +36,7 @@ contract SiriusAdapter is OwnableUpgradeable {
     IDNT public nToken;
     IDNT public gauge;
     IDNT public srs;
+    IMinter public minter;
 
     event AddLiquidity(address indexed user, uint256[] indexed amounts, bool autoStake, uint256 indexed lpAmount);
     event RemoveLiquidity(address indexed user, uint256 amountLP, uint256 indexed receivedASTR);
@@ -53,6 +57,7 @@ contract SiriusAdapter is OwnableUpgradeable {
         IDNT _nToken,
         IDNT _gauge,
         IDNT _srs,
+        IMinter _minter,
         address _token
     ) public initializer {
         __Ownable_init();
@@ -63,6 +68,7 @@ contract SiriusAdapter is OwnableUpgradeable {
         gauge = _gauge;
         srs = _srs;
         token = _token;
+        minter = _minter;
         idxNtoken = pool.getTokenIndex(address(nToken));
         idxToken = pool.getTokenIndex(token);
         approves();
@@ -87,6 +93,14 @@ contract SiriusAdapter is OwnableUpgradeable {
         payable(msg.sender).transfer(address(this).balance);
     }
 
+    // @notice Withdraw revenue part
+    // @param _amount Amount of funds to withdraw
+    function withdrawRevenue(uint256 _amount) external onlyOwner {
+        require(address(this).balance >= _amount, "Not enough revenue");
+        revenuePool -= _amount;
+        payable(msg.sender).transfer(_amount);
+    }
+
     // @notice After the transition of all users to adapters
     //         addLp() and addGauge() will be disabled by this function
     // @param _b enable or disable functionality
@@ -108,10 +122,10 @@ contract SiriusAdapter is OwnableUpgradeable {
     // @param _autoStake If true, LP tokens go to stake at the same tx
     function addLiquidity(uint256[] calldata _amounts, bool _autoStake) external payable update {
         require(!(msg.sender.isContract()), "Allows only for external owned accounts");
-        require(msg.value == _amounts[0], "Wrong value");
+        require(msg.value == _amounts[0], "Value need to be equal to amount of ASTR tokens");
         require(_amounts[0] > 0 && _amounts[1] > 0, "Amounts of tokens should be greater than zero");
 
-        require(nToken.transferFrom(msg.sender, address(this), msg.value), "Error while nASTR transfer");
+        require(nToken.transferFrom(msg.sender, address(this), _amounts[1]), "Error while nASTR transfer");
 
         uint256 lpAmount = pool.addLiquidity{value: msg.value}(_amounts, 0, block.timestamp + 1200);
         lpBalances[msg.sender] += lpAmount;
@@ -247,7 +261,8 @@ contract SiriusAdapter is OwnableUpgradeable {
     // @notice Receives portion of total rewards in SRS tokens from the farm contract
     function updatePoolRewards() private {
         uint256 balBefore = srs.balanceOf(address(this));
-        farm.claimRewards(address(this), address(0)); // address(0) says that the dirrection of the rewards will be default
+        // farm.claimRewards(address(this), address(0)); // address(0) says that the dirrection of the rewards will be default
+        minter.mint(address(gauge));
         uint256 balAfter = srs.balanceOf(address(this));
         uint256 receivedRewards = balAfter - balBefore;
 
@@ -262,9 +277,12 @@ contract SiriusAdapter is OwnableUpgradeable {
     function claim() external {
         require(rewards[msg.sender] > 0, "User has no any rewards");
         require(!msg.sender.isContract(), "Allows only for external owned accounts");
+        uint256 comissionPart = rewards[msg.sender] / REVENUE_FEE; // 10% comission part which go to revenue pool
+        uint256 rewardsToClaim = rewards[msg.sender] - comissionPart;
+        revenuePool += comissionPart;
         rewards[msg.sender] = 0;
-        require(srs.transfer(msg.sender, rewards[msg.sender]), "Error while transfer SRS");
-        emit Claim(msg.sender, rewards[msg.sender]);
+        require(srs.transfer(msg.sender, rewardsToClaim), "Error while transfer SRS");
+        emit Claim(msg.sender, rewardsToClaim);
     }
 
     // @notice Get share of n tokens in pool for user
