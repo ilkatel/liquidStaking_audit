@@ -3,15 +3,18 @@ pragma solidity 0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ISiriusFarm.sol";
 import "./interfaces/ISiriusPool.sol";
-import "./interfaces/IDNT.sol";
 import "./interfaces/IMinter.sol";
+import "./interfaces/IPancakePair.sol";
 
 contract SiriusAdapter is OwnableUpgradeable {
 
     using AddressUpgradeable for address payable;
     using AddressUpgradeable for address;
+    using SafeERC20 for IERC20;
+    using SafeERC20 for IPancakePair;
 
     uint8 private idxNtoken;
     uint8 private idxToken;
@@ -32,10 +35,11 @@ contract SiriusAdapter is OwnableUpgradeable {
 
     ISiriusPool public pool;
     ISiriusFarm public farm;
-    IDNT public lp;
-    IDNT public nToken;
-    IDNT public gauge;
-    IDNT public srs;
+    IPancakePair public pair;
+    IERC20 public lp;
+    IERC20 public nToken;
+    IERC20 public gauge;
+    IERC20 public srs;
     IMinter public minter;
 
     event AddLiquidity(address indexed user, uint256[] indexed amounts, bool autoStake, uint256 indexed lpAmount);
@@ -53,10 +57,11 @@ contract SiriusAdapter is OwnableUpgradeable {
     function initialize(
         ISiriusPool _pool,
         ISiriusFarm _farm,
-        IDNT _lp,
-        IDNT _nToken,
-        IDNT _gauge,
-        IDNT _srs,
+        IPancakePair _pair,
+        IERC20 _lp,
+        IERC20 _nToken,
+        IERC20 _gauge,
+        IERC20 _srs,
         IMinter _minter,
         address _token
     ) public initializer {
@@ -64,6 +69,7 @@ contract SiriusAdapter is OwnableUpgradeable {
         pool = _pool;
         farm = _farm;
         lp = _lp;
+        pair = _pair;
         nToken = _nToken;
         gauge = _gauge;
         srs = _srs;
@@ -81,6 +87,12 @@ contract SiriusAdapter is OwnableUpgradeable {
         if (unclaimedRewards > 0) {
             harvestRewards();
         }
+        _;
+    }
+
+    // @notice check if the caller is an external owned account
+    modifier notAllowContract() {
+        require(!msg.sender.isContract() && tx.origin == msg.sender, "Allows only for EOA");
         _;
     }
 
@@ -110,24 +122,26 @@ contract SiriusAdapter is OwnableUpgradeable {
 
     // @notice approves tokens for pool and farm contracts
     function approves() private {
-        require(nToken.approve(address(pool), type(uint256).max), "nToken approve error");
-        require(lp.approve(address(pool), type(uint256).max), "LP approve error");
-        require(lp.approve(address(farm), type(uint256).max), "LP approve error");
-        require(gauge.approve(address(farm), type(uint256).max), "Gauge approve error");
+        nToken.safeApprove(address(pool), type(uint256).max);
+        lp.safeApprove(address(pool), type(uint256).max);
+        lp.safeApprove(address(farm), type(uint256).max);
+        gauge.safeApprove(address(farm), type(uint256).max);
     }
 
     // @notice Add liquidity to the pool with the given amounts of tokens
     // @param _amounts The amounts of each token to add
     //        idx 0 is ASTR, idx 1 is nASTR
     // @param _autoStake If true, LP tokens go to stake at the same tx
-    function addLiquidity(uint256[] calldata _amounts, bool _autoStake) external payable update {
-        require(!(msg.sender.isContract()), "Allows only for external owned accounts");
+    function addLiquidity(uint256[] calldata _amounts, bool _autoStake) external payable notAllowContract {
         require(msg.value == _amounts[0], "Value need to be equal to amount of ASTR tokens");
         require(_amounts[0] > 0 && _amounts[1] > 0, "Amounts of tokens should be greater than zero");
 
-        require(nToken.transferFrom(msg.sender, address(this), _amounts[1]), "Error while nASTR transfer");
+        nToken.safeTransferFrom(msg.sender, address(this), _amounts[1]);
 
-        uint256 lpAmount = pool.addLiquidity{value: msg.value}(_amounts, 0, block.timestamp + 1200);
+        uint256 calculatedLpAmount = pool.calculateTokenAmount(_amounts, true);
+        uint256 minToMint = calculatedLpAmount * 9 / 10; // min amount for slippage control
+
+        uint256 lpAmount = pool.addLiquidity{value: msg.value}(_amounts, minToMint, block.timestamp + 1200);
         lpBalances[msg.sender] += lpAmount;
 
         if (_autoStake) {
@@ -138,10 +152,9 @@ contract SiriusAdapter is OwnableUpgradeable {
 
     // @notice Remove liquidity from the pool
     // @param _amounts Amount of LP tokens to remove
-    function removeLiquidity(uint256 _amount) public update {
+    function removeLiquidity(uint256 _amount) public notAllowContract {
         require(_amount > 0, "Should be greater than zero");
         require(lpBalances[msg.sender] >= _amount, "Not enough LP");
-        require(!(msg.sender.isContract()), "Allows only for external owned accounts");
 
         uint256[] memory minAmounts = new uint256[](2);
         minAmounts = pool.calculateRemoveLiquidity(_amount);
@@ -157,7 +170,7 @@ contract SiriusAdapter is OwnableUpgradeable {
 
         lpBalances[msg.sender] -= _amount;
 
-        require(nToken.transfer(msg.sender, receivedNtokens), "Error while nASTR transfer");
+        nToken.safeTransfer(msg.sender, receivedNtokens);
         payable(msg.sender).sendValue(receivedTokens);
         emit RemoveLiquidity(msg.sender, _amount, receivedTokens);
     }
@@ -165,12 +178,10 @@ contract SiriusAdapter is OwnableUpgradeable {
     // @notice With this function users can transfer LP tokens to their balance in the adapter contract
     //         Needed to move from "handler contracts" to adapters
     // @param _autoDeposit Allows to deposit LP at the same tx
-    function addLp(bool _autoDeposit) external {
+    function addLp(bool _autoDeposit) external notAllowContract {
         require(!abilityToAddLpAndGauge, "Functionality disabled");
-        require(!(msg.sender.isContract()), "Allows only for external owned accounts");
         uint256 amount = lp.balanceOf(msg.sender);
-        require(amount > 0, "LP tokens not found");
-        require(lp.transferFrom(msg.sender, address(this), amount), "Error while LP tokens receiving");
+        lp.safeTransferFrom(msg.sender, address(this), amount);
         lpBalances[msg.sender] += amount;
 
         if (_autoDeposit) {
@@ -179,24 +190,21 @@ contract SiriusAdapter is OwnableUpgradeable {
     }
 
     // @notice Receive Gauge tokens from user
-    function addGauge() external {
+    function addGauge() external notAllowContract {
         require(!abilityToAddLpAndGauge, "Functionality disabled");
-        require(!(msg.sender.isContract()), "Allows only for external owned accounts");
         uint256 amount = gauge.balanceOf(msg.sender);
-        require(amount > 0, "Gauge tokens not found");
-        require(gauge.transferFrom(msg.sender, address(this), amount), "Error while Gauge tokens receiving");
+        gauge.safeTransferFrom(msg.sender, address(this), amount);
         gaugeBalances[msg.sender] += amount;
 
         // from this moment user can pretend to rewards so set him rewardDebt
-        rewardDebt[msg.sender] = amount * accumulatedRewardsPerShare / REWARDS_PRECISION;
+        rewardDebt[msg.sender] = gaugeBalances[msg.sender] * accumulatedRewardsPerShare / REWARDS_PRECISION;
     }
 
     // @notice Deposit LP tokens to farm pool and receives Gauge tokens instead
     // @param _amount Amount of LP tokens
-    function depositLP(uint256 _amount) public update {
+    function depositLP(uint256 _amount) public update notAllowContract {
         require(lpBalances[msg.sender] >= _amount, "Not enough LP tokens");
         require(_amount > 0, "Shoud be greater than zero");
-        require(!(msg.sender.isContract()), "Allows only for external owned accounts");
 
         lpBalances[msg.sender] -= _amount;
 
@@ -206,26 +214,25 @@ contract SiriusAdapter is OwnableUpgradeable {
         uint256 receivedGauge = afterGauge - beforeGauge;
 
         gaugeBalances[msg.sender] += receivedGauge;
-        rewardDebt[msg.sender] = _amount * accumulatedRewardsPerShare / REWARDS_PRECISION;
+        rewardDebt[msg.sender] = gaugeBalances[msg.sender] * accumulatedRewardsPerShare / REWARDS_PRECISION;
         emit DepositLP(msg.sender, _amount);
     }
 
     // @notice Receives LP tokens back instead of Gauge
     // @param _amount Amount of Gauge tokens
     // @param _autoWithdraw If true remove all liquidity at the same tx
-    function withdrawLP(uint256 _amount, bool _autoWithdraw) external update {
+    function withdrawLP(uint256 _amount, bool _autoWithdraw) external update notAllowContract {
         require(gaugeBalances[msg.sender] >= _amount, "Not enough Gauge tokens");
         require(_amount > 0, "Shoud be greater than zero");
-        require(!(msg.sender.isContract()), "Allows only for external owned accounts");
 
-        rewardDebt[msg.sender] = _amount * accumulatedRewardsPerShare / REWARDS_PRECISION;
+        rewardDebt[msg.sender] = gaugeBalances[msg.sender] * accumulatedRewardsPerShare / REWARDS_PRECISION;
 
         uint256 balBefore = lp.balanceOf(address(this));
         farm.withdraw(_amount, false);
         uint256 balAfter = lp.balanceOf(address(this));
         uint256 receivedAmount = balAfter - balBefore;
 
-        gaugeBalances[msg.sender] -= receivedAmount;
+        gaugeBalances[msg.sender] -= _amount;
         lpBalances[msg.sender] += receivedAmount;
 
         if (_autoWithdraw) {
@@ -245,11 +252,6 @@ contract SiriusAdapter is OwnableUpgradeable {
         // calculates the user's share of the total number of awards and subtracts from it accumulated rewardDebt
         uint256 rewardsToHarvest = (stakedAmount * accumulatedRewardsPerShare / REWARDS_PRECISION) - rewardDebt[msg.sender];
 
-        if (rewardsToHarvest == 0) {
-            rewardDebt[msg.sender] = stakedAmount * accumulatedRewardsPerShare / REWARDS_PRECISION;
-            return;
-        }
-
         rewardDebt[msg.sender] = stakedAmount * accumulatedRewardsPerShare / REWARDS_PRECISION;
 
         // collect user rewards that can be claimed
@@ -261,7 +263,6 @@ contract SiriusAdapter is OwnableUpgradeable {
     // @notice Receives portion of total rewards in SRS tokens from the farm contract
     function updatePoolRewards() private {
         uint256 balBefore = srs.balanceOf(address(this));
-        // farm.claimRewards(address(this), address(0)); // address(0) says that the dirrection of the rewards will be default
         minter.mint(address(gauge));
         uint256 balAfter = srs.balanceOf(address(this));
         uint256 receivedRewards = balAfter - balBefore;
@@ -274,14 +275,13 @@ contract SiriusAdapter is OwnableUpgradeable {
     }
 
     // @notice For claim rewards by users
-    function claim() external {
+    function claim() external update notAllowContract{
         require(rewards[msg.sender] > 0, "User has no any rewards");
-        require(!msg.sender.isContract(), "Allows only for external owned accounts");
         uint256 comissionPart = rewards[msg.sender] / REVENUE_FEE; // 10% comission part which go to revenue pool
         uint256 rewardsToClaim = rewards[msg.sender] - comissionPart;
         revenuePool += comissionPart;
         rewards[msg.sender] = 0;
-        require(srs.transfer(msg.sender, rewardsToClaim), "Error while transfer SRS");
+        srs.safeTransfer(msg.sender, rewardsToClaim);
         emit Claim(msg.sender, rewardsToClaim);
     }
 
