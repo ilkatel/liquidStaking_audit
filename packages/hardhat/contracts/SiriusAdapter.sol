@@ -4,12 +4,13 @@ pragma solidity 0.8.4;
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/ISiriusFarm.sol";
 import "./interfaces/ISiriusPool.sol";
 import "./interfaces/IMinter.sol";
 import "./interfaces/IPancakePair.sol";
 
-contract SiriusAdapter is OwnableUpgradeable {
+contract SiriusAdapter is OwnableUpgradeable, ReentrancyGuard {
 
     using AddressUpgradeable for address payable;
     using AddressUpgradeable for address;
@@ -132,7 +133,7 @@ contract SiriusAdapter is OwnableUpgradeable {
     // @param _amounts The amounts of each token to add
     //        idx 0 is ASTR, idx 1 is nASTR
     // @param _autoStake If true, LP tokens go to stake at the same tx
-    function addLiquidity(uint256[] calldata _amounts, bool _autoStake) external payable notAllowContract {
+    function addLiquidity(uint256[] calldata _amounts, bool _autoStake) external payable notAllowContract nonReentrant {
         require(msg.value == _amounts[0], "Value need to be equal to amount of ASTR tokens");
         require(_amounts[0] > 0 && _amounts[1] > 0, "Amounts of tokens should be greater than zero");
 
@@ -178,7 +179,7 @@ contract SiriusAdapter is OwnableUpgradeable {
     // @notice With this function users can transfer LP tokens to their balance in the adapter contract
     //         Needed to move from "handler contracts" to adapters
     // @param _autoDeposit Allows to deposit LP at the same tx
-    function addLp(bool _autoDeposit) external notAllowContract {
+    function addLp(bool _autoDeposit) external notAllowContract nonReentrant {
         require(!abilityToAddLpAndGauge, "Functionality disabled");
         uint256 amount = lp.balanceOf(msg.sender);
         lp.safeTransferFrom(msg.sender, address(this), amount);
@@ -190,7 +191,7 @@ contract SiriusAdapter is OwnableUpgradeable {
     }
 
     // @notice Receive Gauge tokens from user
-    function addGauge() external notAllowContract {
+    function addGauge() external notAllowContract nonReentrant {
         require(!abilityToAddLpAndGauge, "Functionality disabled");
         uint256 amount = gauge.balanceOf(msg.sender);
         gauge.safeTransferFrom(msg.sender, address(this), amount);
