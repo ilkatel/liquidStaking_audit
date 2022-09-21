@@ -1,61 +1,24 @@
-![Algem Logo](https://github.com/DippyArtu/algem/blob/main/pics/logo-alpha.png?raw=true)
+# About 1.5 
 
-# Install
-**Commands executed from the home directory**
+Version 1.5 implies the ability to stake to other dapps through a liquidstaking contract. For each dapp, a unique utility will be created in the distributor's contractor, thanks to which it will be possible to control the shares of users in a particular dapp and track changes in their balances.
 
-Clone the source code, install dependencies.
+The collection of rewards from all dapps will be done by the first user in the era.
+The calculation of rewards for each user will be carried out at the claim, taking into account the pre-calculated coefficients of rewards and balances per user at the time of each era.
 
-```$git clone https://github.com/DippyArtu/algem.git```
+Rewards for all dapps are distributed evenly, according to the concept of dappstaking.
 
-```$cd ~/algem```
+# Info 
 
-```$npm install```
+Old version contracts -> contracts/old
+Not upgredeable contracts -> contracts/common
+Upgredeable versions -> contracts/upgredeable
 
-See **Astar Cheatsheet.md** to setup local Astar instance
+__* Not upgredeable contracts built for local testing.__
 
-# Compile
+# Dev 
 
-**Commands executed from the home directory**
+Fot tests connect http://80.78.24.17:9933 endpoint (id: 4369) or build astar-collator local chain.
 
-Check if everything compiles
+All test logs located in test/common/logs.txt.
 
-```$cd ~/algem/packages/hardhat/```
-
-```$npx hardhat compile```
-
-# Deploy
-
-**Commands executed from the ```algem/packages/hardhat``` directory**
-
-Deploy contracts with this command, where ```CONTRACT_NAME``` derived from the desired contract and ```NETWORK_NAME``` can be found in ```hardhat.config.js```
-
-```$yarn deploy --tags %CONTRACT_NAME% --network %NETWORK_NAME%```
-
-For example, you want to deploy nSBY to Shibuya testnet:
-
-```$yarn deploy --tags NSBY --network shibuyaTestnet```
-
-* Deploy scritps can be found at ```algem/packages/hardhat/deploy```
-* Contract arguments: ```algem/packages/hardhat/contract-arguments```
-
-* Currently there are issues with passing arguments to upgradeable contracts via ```contract-arguments``` so ```nDistributor``` and ```LiquidStaking``` recieve them directly from the deploy script.
-
-# Post-deploy routine
-
-**NDistributor**
-* ```addDnt("nSBY", address)``` pass NSBY addr
-* ```addUtility("LiquidStaking")```
-* ```addManager(address)``` pass Liquid Staking proxy addr
-* ```addManager(address)``` pass NSBY addr
-* ```setLiquidStaking(address)``` pass Liquid Staking proxy addr
-
-**LiquidStaking**
-* ```setup()```
-* ```setDistr(address)``` pass NDistributor proxy addr
-* ```setDntToken(address)``` pass NSBY addr
-
-# Test
-
-*Work in progress*
-
-
+test/upgredeable - tests for upgradeProxy and structures migration (NOT READY).
