@@ -11,6 +11,16 @@ To store user balances in each dapp, mapping eraBalance is used, which records t
 
 In addition, the fee for a claim may differ for different users, depending on the availability of the relevant NFTs. To implement this logic, the nftDistributor contract was developed. <br>
 
+# About DappsStaking
+
+DappsStaking module is an ASTAR blockchain precompiler that allows users to stake into dapps they want to support. For this, users receive rewards and the dapps themselves also receive small rewards. <br>
+
+All rewards are distributed among all dapps evenly and their number depends only on the staked balance. <br>
+
+More details can be found with DappsStaking here: <br>
+* Interface: https://portal.astar.network/#/astar/dapp-staking/discover <br>
+* Docs: https://docs.astar.network/docs/dapp-staking/ <br>
+
 # Smart-contracts
 
 * __LiquidStaking.sol__
