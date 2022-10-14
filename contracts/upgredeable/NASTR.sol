@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 // import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./NDistributor.sol";
-
+import "./NFTDistributor.sol";
 /*
  * @notice nASTR ERC20 DNT token contract
  *
@@ -41,6 +41,8 @@ contract NASTR is
     /* 1.5 upd */bool private isMultiTransfer;
     /* 1.5 upd */bool private isBurnNote;
     /* 1.5 upd */string private utilityToTransfer;
+
+    /* 1.5 upd */NFTDistributor public nftDistr;
 
     using Address for address;
 
@@ -127,10 +129,31 @@ contract NASTR is
             distributor.transferDnt(from, to, amount, utilityToTransfer, "nASTR");
             return;
         }
-        if (!isMultiTransfer && from != address(0)) {
-            distributor.transferDnts(from, to, amount, "nASTR");            
-        }
     }
+
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override {
+        if (!isMultiTransfer && from != address(0)) {
+            (string[] memory utilities, uint256[] memory amounts) = distributor.transferDnts(from, to, amount, "nASTR");
+            nftDistr.multiTransferDnt(utilities, from, to, amounts);
+        }
+
+        super._transfer(from, to, amount);
+    }
+
+    // function _afterTokenTransfer(
+    //     address from,
+    //     address to,
+    //     uint256 amount
+    // ) internal 
+    // override
+    // whenNotPaused{
+    //     super._afterTokenTransfer(from, to, amount);
+    //     nftDistr.transferDnt()
+    // }
 
     /* 1.5 upd */
     /// @notice transfer totens from selected utilities
@@ -141,18 +164,23 @@ contract NASTR is
         require(utilities.length > 0, "Incorrect utilities array");
         require(utilities.length == amounts.length, "Incorrect arrays length");
 
-        uint256 transferAmount;
-        uint256 l = utilities.length;
-        for (uint256 i; i < l; i++) {
-            transferAmount += amounts[i];
-        }
-        require(transferAmount > 0, "Incorrect amount");
+        // uint256 l = utilities.length;
+        // for (uint256 i; i < l; i++) {
+        //     transferAmount += amounts[i];
+        // }
+        // require(transferAmount > 0, "Incorrect amount");
 
-        distributor.multiTransferDnts(msg.sender, to, amounts, utilities, "nASTR");
+        // distributor.multiTransferDnts(msg.sender, to, amounts, utilities, "nASTR");
+
+        uint256 transferAmount = distributor.multiTransferDnts(msg.sender, to, amounts, utilities, "nASTR");
+        require(transferAmount > 0, "Nothing to transfer");
 
         /// @dev set flag to ignore default _beforeTokenTransfer
         isMultiTransfer = true;
         _transfer(msg.sender, to, transferAmount);
         isMultiTransfer = false;
+
+        nftDistr.multiTransferDnt(utilities, msg.sender, to, amounts);
     }
+
 }

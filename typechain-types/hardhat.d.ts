@@ -13,9 +13,17 @@ import * as Contracts from ".";
 declare module "hardhat/types/runtime" {
   interface HardhatEthersHelpers extends HardhatEthersHelpersBase {
     getContractFactory(
+      name: "AccessControlEnumerableUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.AccessControlEnumerableUpgradeable__factory>;
+    getContractFactory(
       name: "AccessControlUpgradeable",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.AccessControlUpgradeable__factory>;
+    getContractFactory(
+      name: "IAccessControlEnumerableUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAccessControlEnumerableUpgradeable__factory>;
     getContractFactory(
       name: "IAccessControlUpgradeable",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -56,6 +64,42 @@ declare module "hardhat/types/runtime" {
       name: "IERC20Upgradeable",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC20Upgradeable__factory>;
+    getContractFactory(
+      name: "ERC721Upgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC721Upgradeable__factory>;
+    getContractFactory(
+      name: "ERC721BurnableUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC721BurnableUpgradeable__factory>;
+    getContractFactory(
+      name: "ERC721EnumerableUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC721EnumerableUpgradeable__factory>;
+    getContractFactory(
+      name: "ERC721PausableUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC721PausableUpgradeable__factory>;
+    getContractFactory(
+      name: "IERC721EnumerableUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721EnumerableUpgradeable__factory>;
+    getContractFactory(
+      name: "IERC721MetadataUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721MetadataUpgradeable__factory>;
+    getContractFactory(
+      name: "IERC721ReceiverUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721ReceiverUpgradeable__factory>;
+    getContractFactory(
+      name: "IERC721Upgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721Upgradeable__factory>;
+    getContractFactory(
+      name: "ERC721PresetMinterPauserAutoIdUpgradeable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC721PresetMinterPauserAutoIdUpgradeable__factory>;
     getContractFactory(
       name: "ContextUpgradeable",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -120,6 +164,70 @@ declare module "hardhat/types/runtime" {
       name: "IERC165",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC165__factory>;
+    getContractFactory(
+      name: "AdaptersDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.AdaptersDistributor__factory>;
+    getContractFactory(
+      name: "Algem721",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Algem721__factory>;
+    getContractFactory(
+      name: "DappsStaking",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.DappsStaking__factory>;
+    getContractFactory(
+      name: "IAdaptersDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAdaptersDistributor__factory>;
+    getContractFactory(
+      name: "IDNT",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IDNT__factory>;
+    getContractFactory(
+      name: "IDNTMultiTransfer",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IDNTMultiTransfer__factory>;
+    getContractFactory(
+      name: "ILiquidStaking",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ILiquidStaking__factory>;
+    getContractFactory(
+      name: "INDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.INDistributor__factory>;
+    getContractFactory(
+      name: "INFTDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.INFTDistributor__factory>;
+    getContractFactory(
+      name: "IPartnerHandler",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPartnerHandler__factory>;
+    getContractFactory(
+      name: "TI",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.TI__factory>;
+    getContractFactory(
+      name: "LiquidStaking",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LiquidStaking__factory>;
+    getContractFactory(
+      name: "MockDapp",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MockDapp__factory>;
+    getContractFactory(
+      name: "NASTR",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NASTR__factory>;
+    getContractFactory(
+      name: "NDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NDistributor__factory>;
+    getContractFactory(
+      name: "NFTDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NFTDistributor__factory>;
     getContractFactory(
       name: "DappsStaking",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -189,9 +297,29 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.NDistributorOld__factory>;
     getContractFactory(
+      name: "AdaptersDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.AdaptersDistributor__factory>;
+    getContractFactory(
+      name: "Algem721",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Algem721__factory>;
+    getContractFactory(
+      name: "BaseStorage",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.BaseStorage__factory>;
+    getContractFactory(
       name: "DappsStaking",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.DappsStaking__factory>;
+    getContractFactory(
+      name: "IAdaptersDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAdaptersDistributor__factory>;
+    getContractFactory(
+      name: "IAlgem",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAlgem__factory>;
     getContractFactory(
       name: "IDNT",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -201,17 +329,49 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IDNTMultiTransfer__factory>;
     getContractFactory(
+      name: "IEraShotHelper",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IEraShotHelper__factory>;
+    getContractFactory(
+      name: "ILiquidFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ILiquidFacet__factory>;
+    getContractFactory(
+      name: "ILiquidStaking_1_5",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ILiquidStaking_1_5__factory>;
+    getContractFactory(
       name: "ILiquidStaking",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ILiquidStaking__factory>;
+    getContractFactory(
+      name: "INDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.INDistributor__factory>;
+    getContractFactory(
+      name: "INFTDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.INFTDistributor__factory>;
     getContractFactory(
       name: "IPartnerHandler",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IPartnerHandler__factory>;
     getContractFactory(
+      name: "LiquidFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LiquidFacet__factory>;
+    getContractFactory(
+      name: "LiquidStaking2",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LiquidStaking2__factory>;
+    getContractFactory(
       name: "LiquidStaking",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.LiquidStaking__factory>;
+    getContractFactory(
+      name: "MockDapp",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MockDapp__factory>;
     getContractFactory(
       name: "NASTR",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -220,12 +380,30 @@ declare module "hardhat/types/runtime" {
       name: "NDistributor",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.NDistributor__factory>;
+    getContractFactory(
+      name: "NFTDistributor",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NFTDistributor__factory>;
+    getContractFactory(
+      name: "TTmock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.TTmock__factory>;
 
+    getContractAt(
+      name: "AccessControlEnumerableUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.AccessControlEnumerableUpgradeable>;
     getContractAt(
       name: "AccessControlUpgradeable",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.AccessControlUpgradeable>;
+    getContractAt(
+      name: "IAccessControlEnumerableUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAccessControlEnumerableUpgradeable>;
     getContractAt(
       name: "IAccessControlUpgradeable",
       address: string,
@@ -276,6 +454,51 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IERC20Upgradeable>;
+    getContractAt(
+      name: "ERC721Upgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC721Upgradeable>;
+    getContractAt(
+      name: "ERC721BurnableUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC721BurnableUpgradeable>;
+    getContractAt(
+      name: "ERC721EnumerableUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC721EnumerableUpgradeable>;
+    getContractAt(
+      name: "ERC721PausableUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC721PausableUpgradeable>;
+    getContractAt(
+      name: "IERC721EnumerableUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721EnumerableUpgradeable>;
+    getContractAt(
+      name: "IERC721MetadataUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721MetadataUpgradeable>;
+    getContractAt(
+      name: "IERC721ReceiverUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721ReceiverUpgradeable>;
+    getContractAt(
+      name: "IERC721Upgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721Upgradeable>;
+    getContractAt(
+      name: "ERC721PresetMinterPauserAutoIdUpgradeable",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC721PresetMinterPauserAutoIdUpgradeable>;
     getContractAt(
       name: "ContextUpgradeable",
       address: string,
@@ -356,6 +579,86 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IERC165>;
+    getContractAt(
+      name: "AdaptersDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.AdaptersDistributor>;
+    getContractAt(
+      name: "Algem721",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Algem721>;
+    getContractAt(
+      name: "DappsStaking",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.DappsStaking>;
+    getContractAt(
+      name: "IAdaptersDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAdaptersDistributor>;
+    getContractAt(
+      name: "IDNT",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IDNT>;
+    getContractAt(
+      name: "IDNTMultiTransfer",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IDNTMultiTransfer>;
+    getContractAt(
+      name: "ILiquidStaking",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ILiquidStaking>;
+    getContractAt(
+      name: "INDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.INDistributor>;
+    getContractAt(
+      name: "INFTDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.INFTDistributor>;
+    getContractAt(
+      name: "IPartnerHandler",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPartnerHandler>;
+    getContractAt(
+      name: "TI",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.TI>;
+    getContractAt(
+      name: "LiquidStaking",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LiquidStaking>;
+    getContractAt(
+      name: "MockDapp",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MockDapp>;
+    getContractAt(
+      name: "NASTR",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NASTR>;
+    getContractAt(
+      name: "NDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NDistributor>;
+    getContractAt(
+      name: "NFTDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NFTDistributor>;
     getContractAt(
       name: "DappsStaking",
       address: string,
@@ -442,10 +745,35 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.NDistributorOld>;
     getContractAt(
+      name: "AdaptersDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.AdaptersDistributor>;
+    getContractAt(
+      name: "Algem721",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Algem721>;
+    getContractAt(
+      name: "BaseStorage",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.BaseStorage>;
+    getContractAt(
       name: "DappsStaking",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.DappsStaking>;
+    getContractAt(
+      name: "IAdaptersDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAdaptersDistributor>;
+    getContractAt(
+      name: "IAlgem",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAlgem>;
     getContractAt(
       name: "IDNT",
       address: string,
@@ -457,20 +785,60 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IDNTMultiTransfer>;
     getContractAt(
+      name: "IEraShotHelper",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IEraShotHelper>;
+    getContractAt(
+      name: "ILiquidFacet",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ILiquidFacet>;
+    getContractAt(
+      name: "ILiquidStaking_1_5",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ILiquidStaking_1_5>;
+    getContractAt(
       name: "ILiquidStaking",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.ILiquidStaking>;
+    getContractAt(
+      name: "INDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.INDistributor>;
+    getContractAt(
+      name: "INFTDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.INFTDistributor>;
     getContractAt(
       name: "IPartnerHandler",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IPartnerHandler>;
     getContractAt(
+      name: "LiquidFacet",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LiquidFacet>;
+    getContractAt(
+      name: "LiquidStaking2",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LiquidStaking2>;
+    getContractAt(
       name: "LiquidStaking",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.LiquidStaking>;
+    getContractAt(
+      name: "MockDapp",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MockDapp>;
     getContractAt(
       name: "NASTR",
       address: string,
@@ -481,6 +849,16 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.NDistributor>;
+    getContractAt(
+      name: "NFTDistributor",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NFTDistributor>;
+    getContractAt(
+      name: "TTmock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.TTmock>;
 
     // default types
     getContractFactory(

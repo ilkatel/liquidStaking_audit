@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "./interfaces/IDNT.sol";
 import "./interfaces/ILiquidStaking.sol";
+import "./interfaces/ILiquidStaking_1_5.sol";
 
 /*
  * @notice ERC20 DNT token distributor contract
@@ -115,9 +116,8 @@ contract NDistributor is AccessControlUpgradeable {
     mapping(address => mapping(string => bool)) public userHasUtility;
 
     mapping(string => uint256) public totalDnt;
-    
-    string public generalAdapter;
-    string public adaptersUtility;
+
+    ILiquidStaking_1_5 public newLiquidStaking;
 
     event Transfer(
         address indexed _from,
@@ -135,42 +135,18 @@ contract NDistributor is AccessControlUpgradeable {
 
     using AddressUpgradeable for address;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    // /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function initialize() public initializer {
-        totalDnt["nASTR"] = totalDntInUtil["LiquidStaking"];
-
-        uint lastId = dntDB.length;
-
-        /// @dev nASTR-Adapters => dnt for adapters
-        string memory _name = "nASTR-Adapters";
-        dntId[_name] = lastId;
-        dntDB.push(Dnt(_name, true));
-        dnts.push(_name);
-        dntContracts[_name] = address(0);
         
-        lastId = dntDB.length;
+    }
 
-        /// @dev GeneralAdapter => dnt for general balance of adapters
-        _name = "GeneralAdapter";
-        generalAdapter = _name;
-        dntId[_name] = lastId;
-        dntDB.push(Dnt(_name, true));
-        dnts.push(_name);
-        dntContracts[_name] = address(0);
-
-        lastId = utilityDB.length;
-
-        /// @dev AdaptersUtility => util for general balance of adapters
-        _name = "AdaptersUtility";
-        adaptersUtility = _name;
-        utilityId[_name] = lastId;
-        utilityDB.push(Utility(_name, true));
-        utilities.push(_name);
-        isUtility[_name] = true;
+    function initialize2() external {
+        totalDnt["nASTR"] = totalDntInUtil["LiquidStaking"];
+        newLiquidStaking = ILiquidStaking_1_5(address(liquidStaking));
     }
 
     // -------------------------------------------------------------------------------------------------------
@@ -462,7 +438,7 @@ contract NDistributor is AccessControlUpgradeable {
         string memory _dnt
     ) external dntInterface(_dnt) {
         require(_to != address(0), "Zero address alarm!");
-        require(msg.sender == address(liquidStaking), "Only for LiquidStaking");
+        require(msg.sender == address(newLiquidStaking), "Only for LiquidStaking");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
             "Invalid utility!"
@@ -475,28 +451,27 @@ contract NDistributor is AccessControlUpgradeable {
 
         totalDnt[_dnt] += _amount;
         totalDntInUtil[_utility] += _amount;
-        liquidStaking.updateUserBalanceInUtility(_utility, _to);
-
+        newLiquidStaking.updateUserBalanceInUtility(_utility, _to);
 
         emit IssueDnt(_to, _amount, _utility, _dnt);
     }
 
-    /// @notice set user dnt balance in adapter util
-    /// @param _user => user address
-    /// @param _dnt => dnt name
-    /// @param _utility => utility name
-    /// @param _value => new balance value
-    /// @dev function will be used by adapters to control balances in adapters
-    function setUserAdapterBalance(address _user, string memory _dnt, string memory _utility, uint256 _value) external onlyRole(MANAGER) {
-        require(utilityDB[utilityId[_utility]].isActive, "Adapter not active");
+    // /// @notice set user dnt balance in adapter util
+    // /// @param _user => user address
+    // /// @param _dnt => dnt name
+    // /// @param _utility => utility name
+    // /// @param _value => new balance value
+    // /// @dev function will be used by adapters to control balances in adapters
+    // function setUserAdapterBalance(address _user, string memory _dnt, string memory _utility, uint256 _value) external onlyRole(MANAGER) {
+    //     require(utilityDB[utilityId[_utility]].isActive, "Adapter not active");
 
-        uint256 balanceBefore = users[_user].dnt[_dnt].dntInUtil[_utility];
-        users[_user].dnt[_dnt].dntInUtil[_utility] = _value;
+    //     uint256 balanceBefore = users[_user].dnt[_dnt].dntInUtil[_utility];
+    //     users[_user].dnt[_dnt].dntInUtil[_utility] = _value;
 
-        users[_user].dnt[generalAdapter].dntInUtil[adaptersUtility] += _value - balanceBefore;
+    //     users[_user].dnt[generalAdapter].dntInUtil[adaptersUtility] += _value - balanceBefore;
         
-        liquidStaking.updateUserBalanceInUtility(adaptersUtility, _user);
-    }
+    //     liquidStaking.updateUserBalanceInUtility(adaptersUtility, _user);
+    // }
 
     /// @notice issues new transfer tokens
     /// @param _to => token recepient
@@ -518,7 +493,7 @@ contract NDistributor is AccessControlUpgradeable {
         _addToUser(_to, _dnt, _utility);
 
         users[_to].dnt[_dnt].dntInUtil[_utility] += _amount;
-        liquidStaking.updateUserBalanceInUtility(
+        newLiquidStaking.updateUserBalanceInUtility(
             _utility, 
             _to
         );
@@ -582,7 +557,7 @@ contract NDistributor is AccessControlUpgradeable {
 
         DNTContract.burnNote(_from, _amount, _utility);
         
-        liquidStaking.updateUserBalanceInUtility(_utility, _from);
+        newLiquidStaking.updateUserBalanceInUtility(_utility, _from);
     }
 
     /// @notice removes transfer tokens from circulation
@@ -607,7 +582,7 @@ contract NDistributor is AccessControlUpgradeable {
         );
 
         users[_from].dnt[_dnt].dntInUtil[_utility] -= _amount;
-        liquidStaking.updateUserBalanceInUtility(
+        newLiquidStaking.updateUserBalanceInUtility(
             _utility, 
             _from
         );
@@ -674,13 +649,16 @@ contract NDistributor is AccessControlUpgradeable {
         uint256[] memory _amounts,
         string[] memory _utilities,
         string memory _dnt
-    ) external onlyRole(MANAGER) {
+    ) external onlyRole(MANAGER) returns (uint256) {
+        uint256 totalTransferAmount;
         uint256 l = _utilities.length;
         for (uint256 i; i < l; i++) {
             if (_amounts[i] > 0) {
                 transferDnt(_from, _to, _amounts[i], _utilities[i], _dnt);
+                totalTransferAmount += _amounts[i];
             }
         }
+        return totalTransferAmount;
     }
 
     /// @notice sends the specified amount from all user utilities
@@ -693,10 +671,12 @@ contract NDistributor is AccessControlUpgradeable {
         address _to,
         uint256 _amount,
         string memory _dnt
-    ) external onlyRole(MANAGER) {
+    ) external onlyRole(MANAGER) returns (string[] memory, uint256[] memory) {
         string[] memory _utilities = users[_from].dnt[_dnt].userUtils;
-
         uint256 l = _utilities.length;
+
+        uint256[] memory amounts = new uint256[](l);
+
         for (uint256 i; i < l; i++) {
             uint256 senderBalance = users[_from].dnt[_dnt].dntInUtil[_utilities[i]];
             if (senderBalance > 0) {
@@ -704,8 +684,9 @@ contract NDistributor is AccessControlUpgradeable {
 
                 transferDnt(_from, _to, takeFromUtility, _utilities[i], _dnt);
                 _amount -= takeFromUtility;
+                amounts[i] = takeFromUtility;
 
-                if (_amount == 0) return;  
+                if (_amount == 0) return (_utilities, amounts);  
             }          
         }
         revert("Not enough DNT");
@@ -726,7 +707,7 @@ contract NDistributor is AccessControlUpgradeable {
     ) public onlyRole(MANAGER)  {
         removeTransferDnt(_from, _amount, _utility, _dnt);
         if (_to != address(0)) {
-            liquidStaking.addStaker(_to, _utility);
+            newLiquidStaking.addStaker(_to, _utility);
             issueTransferDnt(_to, _amount, _utility, _dnt);
         }
 

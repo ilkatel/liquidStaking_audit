@@ -6,9 +6,12 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "./interfaces/DappsStaking.sol";
 import "./NDistributor.sol";
+// import "./interfaces/NDistributor.sol";
 import "./interfaces/IDNT.sol";
 import "./interfaces/IPartnerHandler.sol"; /* 1 -> 1.5 will removed with next proxy update */
-
+import "./interfaces/INFTDistributor.sol";
+import "./interfaces/IAdaptersDistributor.sol";
+import "./interfaces/INDistributor.sol";
 
 /* @notice Liquid staking implementation contract
  *
@@ -52,13 +55,13 @@ contract LiquidStaking is AccessControlUpgradeable {
     }
     mapping(address => Withdrawal[]) public withdrawals;
 
-    // @notice useful values per era
+    /* unused and will removed with next proxy update */// @notice useful values per era
     /* unused and will removed with next proxy update */struct eraData {
     /* unused and will removed with next proxy update */    bool done;
     /* unused and will removed with next proxy update */    uint val;
     /* unused and will removed with next proxy update */}
     /* unused and will removed with next proxy update */mapping(uint => eraData) public eraUnstaked;
-    /* ??? */ /* unused and will removed with next proxy update */mapping(uint => eraData) public eraStakerReward; // total staker rewards per era
+    /* unused and will removed with next proxy update */mapping(uint => eraData) public eraStakerReward; // total staker rewards per era
     /* unused and will removed with next proxy update */mapping(uint => eraData) public eraRevenue; // total revenue per era
 
     uint public unbondedPool;
@@ -103,6 +106,42 @@ contract LiquidStaking is AccessControlUpgradeable {
     address[] public partners;  /* 1 -> 1.5 will removed with next proxy update */
     /* unused and will removed with next proxy update */uint public partnersLimit;  // = 15;
 
+    struct Dapp {
+        address dappAddress;
+        // string dnt;
+        uint256 stakedBalance;
+        uint256 sum2unstake;
+        mapping(address => Staker) stakers;
+    }
+
+    struct Staker {
+        // era => era balance
+        mapping(uint256 => uint256) eraBalance;
+        // era => is zero balance
+        mapping(uint256 => bool) isZeroBalance;
+
+        mapping(uint256 => uint256) eraBonus;
+        mapping(uint256 => bool) isZeroBonus;
+
+        uint256 rewards;
+        uint256 lastClaimedEra;
+    }
+    uint256 public lastEraTotalBalance;
+
+    string[] public dappsList;
+    // util name => dapp
+    mapping(string => Dapp) public dapps;
+    mapping(string => bool) public haveUtility;
+    mapping(string => bool) public isActive;
+    mapping(string => uint256) public deactivationEra;
+    mapping(uint256 => uint256) accumulatedRewardsPerShare;
+
+    uint256 public constant REWARDS_PRECISION = 1e12;
+
+    INFTDistributor public nftDistr;
+    IAdaptersDistributor public adaptersDistr;
+    INDistributor public newDistr;
+
     event Staked(address indexed user, uint val);
     event StakedInUtility(address indexed user, string indexed utility, uint val);
     event Unstaked(address indexed user, uint amount, bool immediate);
@@ -122,71 +161,70 @@ contract LiquidStaking is AccessControlUpgradeable {
     using AddressUpgradeable for address payable;
     using AddressUpgradeable for address;
 
-    struct Dapp {
-        address dappAddress;
-        string dnt;
-        uint256 stakedBalance;
-        uint256 sum2unstake;
-        mapping(address => Staker) stakers;
-    }
 
-    struct Staker {
-        // era => era balance
-        mapping(uint256 => uint256) eraBalance;
-        // era => is zero balance
-        mapping(uint256 => bool) isZeroBalance;
-        uint256 rewards;
-        uint256 lastClaimedEra;
-    }
-    uint256 public lastEraTotalBalance;
-
-    string[] public dappsList;
-    // util name => dapp
-    mapping(string => Dapp) public dapps;
-    mapping(string => bool) public haveUtility;
-    mapping(string => bool) public isActive;
-    mapping(string => uint256) public deactivationEra;
-    mapping(uint256 => uint256) accumulatedRewardsPerShare;
-
-    uint256 public constant REWARDS_PRECISION = 1e12;
-    
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }  
+    // 
+    // constructor() {
+    //     _disableInitializers();
+    // }  
 
     // ------------------ INIT
     // -----------------------
     function initialize() public initializer {
+        // nftDistr = INFTDistributor(_nftDistr);
+        // adaptersDistr = IAdaptersDistributor(_adaptersDistr);
+
+        // _grantRole(MANAGER, _nftDistr);
+        // _grantRole(MANAGER, _adaptersDistr);
+
+        // dappsList.push(utilName);
+        // haveUtility[utilName] = true;
+        // isActive[utilName] = true;
+        // dapps[utilName].dappAddress = address(this);
+        // // dapps[utilName].dnt = DNTname;
+
+        // dapps[utilName].sum2unstake = sum2unstake;
+        // dapps[utilName].stakedBalance = distr.totalDntInUtil(utilName); 
+        // // lastEraTotalBalance = distr.totalDnt(DNTname);
+        // lastEraTotalBalance = 19987657;
+    }
+
+    function initialize2(address _nftDistr, address _adaptersDistr) external {
+        newDistr = INDistributor(address(distr));
+        nftDistr = INFTDistributor(_nftDistr);
+        adaptersDistr = IAdaptersDistributor(_adaptersDistr);
+
+        _grantRole(MANAGER, _nftDistr);
+        _grantRole(MANAGER, _adaptersDistr);
+
         dappsList.push(utilName);
         haveUtility[utilName] = true;
         isActive[utilName] = true;
         dapps[utilName].dappAddress = address(this);
-        dapps[utilName].dnt = DNTname;
+        // dapps[utilName].dnt = DNTname;
 
         dapps[utilName].sum2unstake = sum2unstake;
-        dapps[utilName].stakedBalance = distr.totalDntInUtil(utilName);
-        lastEraTotalBalance = distr.totalDnt(DNTname);
+        dapps[utilName].stakedBalance = newDistr.totalDntInUtil(utilName); 
+        lastEraTotalBalance = newDistr.totalDnt(DNTname);
     }
 
-    /// @notice function for migrating users storage
-    /// @param _user => user address
-    /// @dev the beginning of the migration must be carried out at the beginning of a new era
-    /// @dev before starting the migration, you must first call eraShot 
-    ///      for each user to calculate his rewards for the past era
-    /// @dev before starting the migration, you need to make a claim of 
-    ///      rewards for all past eras and call the sync function for all non-updated eras
-    function migrateStorage(address _user) public onlyRole(MANAGER) {
-        if (_user == address(0)) return;
+    // /// @notice function for migrating users storage
+    // /// @param _user => user address
+    // /// @dev the beginning of the migration must be carried out at the beginning of a new era
+    // /// @dev before starting the migration, you must first call eraShot 
+    // ///      for each user to calculate his rewards for the past era
+    // /// @dev before starting the migration, you need to make a claim of 
+    // ///      rewards for all past eras and call the sync function for all non-updated eras
+    // function migrateStorage(address _user) public onlyRole(MANAGER) {
+    //     if (_user == address(0)) return;
 
-        uint256 _era = currentEra();
-        dapps[utilName].stakers[_user].rewards = totalUserRewards[_user];
-        dapps[utilName].stakers[_user].eraBalance[_era] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era];
-        dapps[utilName].stakers[_user].isZeroBalance[_era] = dapps[utilName].stakers[_user].eraBalance[_era] == 0 ? true : false;
-        dapps[utilName].stakers[_user].eraBalance[_era + 1] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era + 1];
-        dapps[utilName].stakers[_user].isZeroBalance[_era + 1] = dapps[utilName].stakers[_user].eraBalance[_era = 1] == 0 ? true : false;
-        dapps[utilName].stakers[_user].lastClaimedEra = _era;
-    }
+    //     uint256 _era = currentEra();
+    //     dapps[utilName].stakers[_user].rewards = totalUserRewards[_user];
+    //     dapps[utilName].stakers[_user].eraBalance[_era] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era];
+    //     dapps[utilName].stakers[_user].isZeroBalance[_era] = dapps[utilName].stakers[_user].eraBalance[_era] == 0 ? true : false;
+    //     dapps[utilName].stakers[_user].eraBalance[_era + 1] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era + 1];
+    //     dapps[utilName].stakers[_user].isZeroBalance[_era + 1] = dapps[utilName].stakers[_user].eraBalance[_era = 1] == 0 ? true : false;
+    //     dapps[utilName].stakers[_user].lastClaimedEra = _era;
+    // }
 
     // ----------------------
 
@@ -201,7 +239,7 @@ contract LiquidStaking is AccessControlUpgradeable {
 
     /// @notice only distributor modifier
     modifier onlyDistributor() {
-        require(msg.sender == address(distr), "Only for distributor!");
+        require(msg.sender == address(newDistr) || msg.sender == address(adaptersDistr), "Only for distributor!");
         _;
     }
 
@@ -244,13 +282,13 @@ contract LiquidStaking is AccessControlUpgradeable {
         require(_dapp != address(0), "Incorrect dapp address");
         require(!haveUtility[_utility], "Utility already added");
 
-        distr.addUtility(_utility);
+        newDistr.addUtility(_utility);
         dappsList.push(_utility);
         haveUtility[_utility] = true;
         isActive[_utility] = true;
         dapps[_utility].dappAddress = _dapp;
         // set default DNT (nASTR)
-        dapps[_utility].dnt = DNTname;
+        // dapps[_utility].dnt = DNTname;
     }
     
     /// @notice activate or deactivate interaction with dapp
@@ -294,14 +332,19 @@ contract LiquidStaking is AccessControlUpgradeable {
         }
 
         totalBalance += _stakeAmount;
-        totalRevenue += value - _stakeAmount;  // under question
+        totalRevenue += value - _stakeAmount;
+
+        uint256 _era = currentEra() + 1;
 
         for (uint256 i; i < l; i++) {
+            if (dapps[_utilities[i]].stakers[msg.sender].lastClaimedEra == 0)
+                dapps[_utilities[i]].stakers[msg.sender].lastClaimedEra = _era;
+
             if (_amounts[i] > 0) {
                 string memory _utility = _utilities[i];
 
                 DAPPS_STAKING.bond_and_stake(dapps[_utility].dappAddress, uint128(_amounts[i]));
-                distr.issueDnt(msg.sender, _amounts[i], _utility, DNTname);
+                newDistr.issueDnt(msg.sender, _amounts[i], _utility, DNTname);
 
                 dapps[_utility].stakedBalance += _amounts[i];
 
@@ -329,7 +372,7 @@ contract LiquidStaking is AccessControlUpgradeable {
                 string memory _utility = _utilities[i];
                 uint256 _amount = _amounts[i];
 
-                uint256 userDntBalance = distr.getUserDntBalanceInUtil(
+                uint256 userDntBalance = newDistr.getUserDntBalanceInUtil(
                     msg.sender,
                     _utility,
                     DNTname
@@ -342,7 +385,7 @@ contract LiquidStaking is AccessControlUpgradeable {
                 totalBalance -= _amount;
                 dapp.stakedBalance -= _amount;
 
-                distr.removeDnt(msg.sender, _amount, _utility, DNTname);
+                newDistr.removeDnt(msg.sender, _amount, _utility, DNTname);
 
                 if (_immediate) {
                     // get liquidity from unstaking pool
@@ -381,8 +424,8 @@ contract LiquidStaking is AccessControlUpgradeable {
     }
 
     /// @notice claim all user rewards from all utilities (without adapters)
-    function claimAll() updateAll external {
-        string[] memory _utilities = distr.listUserUtilitiesInDnt(msg.sender, DNTname);
+    function claimAll() external updateAll {
+        string[] memory _utilities = newDistr.listUserUtilitiesInDnt(msg.sender, DNTname);
 
         uint256 l = _utilities.length;
         uint256[] memory _amounts = new uint256[](l);
@@ -456,7 +499,8 @@ contract LiquidStaking is AccessControlUpgradeable {
     /// @param _user => user address
     function harvestRewards(string memory _utility, address _user) private {
         // calculate unclaimed user rewards
-        uint256 rewardsToHarvest = calcUserRewards(_utility, _user);
+        (uint256 rewardsToHarvest, uint256 lastUserBalance) = calcUserRewards(_utility, _user);
+        nftDistr.updateUser(_utility, _user, lastUpdated, lastUserBalance);
         dapps[_utility].stakers[_user].lastClaimedEra = lastUpdated;
 
         if (rewardsToHarvest == 0) return;
@@ -471,19 +515,27 @@ contract LiquidStaking is AccessControlUpgradeable {
     /// @param _utility => utility
     /// @param _user => user address
     /// @return userRewards => unclaimed user rewards from utility
-    function calcUserRewards(string memory _utility, address _user) private view returns (uint256) {
+    function calcUserRewards(string memory _utility, address _user) private view returns (uint256, uint256) {
         Staker storage user = dapps[_utility].stakers[_user];
         uint256 claimedEra = user.lastClaimedEra;
         uint256 _era = lastUpdated;
 
-        if (claimedEra >= _era || claimedEra < 1) return 0;
+        (uint256 uB, ) = nftDistr.getUserEraBalance(_utility, _user, claimedEra);
+
+        if (claimedEra >= _era || claimedEra < 1) return (0, uB);
     
         uint256 userRewards;
         uint256 userEraBalance = user.eraBalance[claimedEra];
 
         for (uint256 i = claimedEra; i < _era; ) {
             if (userEraBalance > 0) {
-                userRewards += (userEraBalance * accumulatedRewardsPerShare[i] / REWARDS_PRECISION);
+                uint256 userEraRewards = (userEraBalance * accumulatedRewardsPerShare[i] / REWARDS_PRECISION);
+
+                if (uB > 0) {
+                    uint8 userComission = nftDistr.getUserComission(_utility, _user);
+                    userEraRewards = userEraRewards * (100 - userComission - UNSTAKING_FEE) / (100 - MANAGEMENT_FEE);
+                }
+                userRewards += userEraRewards;
             }
             
             if (user.eraBalance[i + 1] == 0) {
@@ -495,9 +547,18 @@ contract LiquidStaking is AccessControlUpgradeable {
             } else {
                 userEraBalance = user.eraBalance[i + 1];
             }
+
+            (uint256 _uB, bool _zB) = nftDistr.getUserEraBalance(_utility, _user, i + 1);
+            if (_uB == 0) {
+                if (_zB) {
+                    uB = 0;
+                }
+            } else {
+                uB = _uB;
+            }
             unchecked { ++i; }
         }
-        return userRewards;
+        return (userRewards, uB);
     }
 
     /// @notice preview all eser rewards from utility at current era
@@ -505,7 +566,8 @@ contract LiquidStaking is AccessControlUpgradeable {
     /// @param _user => user address
     /// @return userRewards => unclaimed user rewards from utility
     function previewUserRewards(string memory _utility, address _user) external view returns (uint256) {
-        return calcUserRewards(_utility, _user) + dapps[_utility].stakers[_user].rewards;
+        (uint256 _userRew, ) = calcUserRewards(_utility, _user);
+        return _userRew + dapps[_utility].stakers[_user].rewards;
     }
 
     // ------------------------------
@@ -526,24 +588,37 @@ contract LiquidStaking is AccessControlUpgradeable {
         uint256 balanceAfter = address(this).balance;
 
         uint256 receivedRewards = balanceAfter - balanceBefore;
-        uint256 coms = receivedRewards / MANAGEMENT_FEE; // 10% comission to revenue and unstaking pools
-        uint256 totalReceived = receivedRewards - coms;
 
-        totalRevenue += coms * REVENUE_FEE / 10; // 9% of era reward s goes to revenue pool
-        unstakingPool += coms * UNSTAKING_FEE / 10; // 1% of era rewards goes to unstaking pool
+        uint256[2] memory erasData = nftDistr.getErasData(_lastUpd, _era);
+        // uint256[2] memory erasData;
+        // erasData[0] = 10000;
+        // erasData[1] = 190;
+        uint256 allErasBalance = lastEraTotalBalance * (_era - _lastUpd);
+
+        uint256 rewardsK = receivedRewards * REWARDS_PRECISION / allErasBalance;
+        uint256 nftRevenue = rewardsK * erasData[1] / (100 * REWARDS_PRECISION);
+        uint256 defaultRevenue = rewardsK * REVENUE_FEE * (allErasBalance - erasData[0]) / (100 * REWARDS_PRECISION);
+        uint256 toUnstaking = receivedRewards / 100;
+
+        uint256 totalReceived = receivedRewards - nftRevenue - defaultRevenue - toUnstaking;
+
+        totalRevenue += nftRevenue + defaultRevenue; // 9% of era reward s goes to revenue pool
+        unstakingPool += toUnstaking; // 1% of era rewards goes to unstaking pool
         rewardPool += totalReceived;
 
         uint256 accRewPerShareByEra;
         if (lastEraTotalBalance > 0)
-            accRewPerShareByEra = (totalReceived * REWARDS_PRECISION / lastEraTotalBalance) / (_era - _lastUpd);
+            accRewPerShareByEra = ((receivedRewards - receivedRewards / MANAGEMENT_FEE) * REWARDS_PRECISION / lastEraTotalBalance) / (_era - _lastUpd);
 
         // update accumulatedRewardsPerShare from all claimed now eras
-        for (uint256 i = _lastUpd; i < _era; i++)
+        for (uint256 i = _lastUpd; i < _era; ) {
             accumulatedRewardsPerShare[i] = accRewPerShareByEra;
+            unchecked { ++i; }
+        }
 
         // update last era balance
         // last era balance = balance that participates in the current era
-        lastEraTotalBalance = distr.totalDnt(DNTname);
+        lastEraTotalBalance = newDistr.totalDnt(DNTname);
     }   
 
     /// @notice claim staker rewards from utility
@@ -632,16 +707,26 @@ contract LiquidStaking is AccessControlUpgradeable {
         _updateUserBalanceInUtility(_utility, _user);
     }
 
+    function updateUserBalanceInAdapter(string memory _utility, address _user) external onlyDistributor {
+        require(_user != address(0), "Zero address alarm!");
+        uint256 _amount = adaptersDistr.getUserBalanceInAdapters(_user);
+        _updateUserBalance(_utility, _user, _amount);
+    }
+
     /// @notice update last user balance
     /// @param _utility => utility
     /// @param _user => user address
     function _updateUserBalanceInUtility(string memory _utility, address _user) private  {
         require(_user != address(0), "Zero address alarm!");
+        // uint256 _amount = distr.getUserDntBalanceInUtil(_user, _utility, DNTname);
+        uint256 _amount = 100;
+        _updateUserBalance(_utility, _user, _amount);
+    }
+
+    function _updateUserBalance(string memory _utility, address _user, uint256 _amount) private {
         uint _era = currentEra() + 1;
 
         Staker storage staker = dapps[_utility].stakers[_user];
-        // get actual user balance
-        uint256 _amount = distr.getUserDntBalanceInUtil(_user, _utility, dapps[_utility].dnt);
 
         if (dapps[_utility].stakers[_user].lastClaimedEra == 0)
             dapps[_utility].stakers[_user].lastClaimedEra = _era;
@@ -770,79 +855,85 @@ contract LiquidStaking is AccessControlUpgradeable {
         );
         _revokeRole(role, account);
     }
-
-    // ------------------------------------------------------
+    
+    // ---------------------------------------------------------------
     // /* 1 -> 1.5 will removed with next proxy update */ // ---------
-    // one week functions -----------------------------------
+    // one week functions --------------------------------------------
     
-    /// @notice iterate by each partner address and get user rewards from handlers
-    /// @param _user shows share of user in nTokens
-    function getUserLpTokens(address _user) public view returns (uint amount) {
-        if (partners.length == 0) return 0;
-        for (uint i; i < partners.length; i++) {
-            amount += IPartnerHandler(partners[i]).calc(_user);
-        }
-    }
-    
-    /// @notice sorts the list in ascending order and return mean
-    /// @param _arr array with user's shares
-    function _findMedian(uint[] memory _arr) private pure returns (uint mean) {
-        uint[] memory arr = _arr;
-        uint len = arr.length;
-        bool swapped = false;
-        for (uint i; i < len - 1; i++) {
-            for (uint j; j < len - i - 1; j++) {
-                if (arr[j] > arr[j + 1]) {
-                    swapped = true;
-                    uint s = arr[j + 1];
-                    arr[j + 1] = arr[j];
-                    arr[j] = s;
-                }
-            }
-            if (!swapped) {
-                return arr[len/2];
-            }
-        }
-        if (len % 2 == 0) return (arr[len/2] + arr[len/2 - 1])/2;
-        return arr[len/2];
-    }
-
-    /// @notice saving information about users balances
-    /// @param _user user's address
-    /// @param _util utility name - unused
-    /// @param _dnt dnt name - unused
-    function eraShot(address _user, string memory _util, string memory _dnt) external onlyRole(MANAGER) {
-        require(_user != address(0), "Zero address alarm!");        
-        
-        uint era = currentEra();
-        require(usersShotsPerEra[_user][era].length <= eraShotsLimit, "Too much era shots");
-
-        // checks if _user haven't shots in era yet
-        if (usersShotsPerEra[_user][era].length == 0) {
-            uint[] memory arr = usersShotsPerEra[_user][era - 1];
-            uint _amount = arr.length > 0 ? _findMedian(arr) : 0;
-
-            Staker storage staker = dapps["AdaptersUtility"].stakers[_user];
-            
-            staker.eraBalance[era] += _amount;
-
-            if (staker.eraBalance[era] == 0) {
-                staker.isZeroBalance[era] = true;
-            } else {
-                if (staker.isZeroBalance[era])
-                    staker.isZeroBalance[era] = false;
-            }
-            
-            if (dapps["AdaptersUtility"].stakers[_user].lastClaimedEra == 0)
-                dapps["AdaptersUtility"].stakers[_user].lastClaimedEra = era;
-            }
-
-        uint lpBal = getUserLpTokens(_user);
-        usersShotsPerEra[_user][era].push(lpBal);
-    }
-
-    // for tests
-    // function getUserEraBalance(address _user, string memory _utility, uint256 _era) external view returns (uint256) {
-    //     return dapps[_utility].stakers[_user].eraBalance[_era];
+    // /// @notice iterate by each partner address and get user rewards from handlers
+    // /// @param _user shows share of user in nTokens
+    // function getUserLpTokens(address _user) public view returns (uint amount) {
+    //     if (partners.length == 0) return 0;
+    //     for (uint i; i < partners.length; i++) {
+    //         amount += IPartnerHandler(partners[i]).calc(_user);
+    //     }
     // }
+    
+    // /// @notice sorts the list in ascending order and return mean
+    // /// @param _arr array with user's shares
+    // function findMedian(uint[] memory _arr) private pure returns (uint mean) {
+    //     uint[] memory arr = _arr;
+    //     uint len = arr.length;
+    //     bool swapped = false;
+    //     for (uint i; i < len - 1; i++) {
+    //         for (uint j; j < len - i - 1; j++) {
+    //             if (arr[j] > arr[j + 1]) {
+    //                 swapped = true;
+    //                 uint s = arr[j + 1];
+    //                 arr[j + 1] = arr[j];
+    //                 arr[j] = s;
+    //             }
+    //         }
+    //         if (!swapped) {
+    //             return arr[len/2];
+    //         }
+    //     }
+    //     if (len % 2 == 0) return (arr[len/2] + arr[len/2 - 1])/2;
+    //     return arr[len/2];
+    // }
+
+    // /// @notice saving information about users balances
+    // /// @param _user user's address
+    // function eraShot(address _user) external onlyRole(MANAGER) {
+    //     require(_user != address(0), "Zero address alarm!");        
+        
+    //     uint era = currentEra();
+    //     require(usersShotsPerEra[_user][era].length <= eraShotsLimit, "Too much era shots");
+
+    //     // checks if _user haven't shots in era yet
+    //     if (usersShotsPerEra[_user][era].length == 0) {
+    //         uint[] memory arr = usersShotsPerEra[_user][era - 1];
+
+    //         if (arr.length > 0) {
+    //             uint256 _amount = findMedian(arr);
+
+    //             Staker storage staker = dapps["AdaptersUtility"].stakers[_user];    
+    //             staker.eraBalance[era] += _amount;
+
+    //             if (staker.eraBalance[era] == 0) {
+    //                 staker.isZeroBalance[era] = true;
+    //             } else {
+    //                 staker.isZeroBalance[era] = false;
+    //             }   
+                
+    //             if (dapps["AdaptersUtility"].stakers[_user].lastClaimedEra == 0) {
+    //                 dapps["AdaptersUtility"].stakers[_user].lastClaimedEra = era;
+    //             }
+    //         }
+    //     }
+
+    //     uint lpBal = getUserLpTokens(_user);
+    //     usersShotsPerEra[_user][era].push(lpBal);
+    // }
+
+    // MOCK ------------------------------
+    /// @notice function for tests
+    function setting() external {
+        DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination.FreeBalance);
+    }
+
+    /// @notice function for tests
+    function getUserEraBalance(address _user, string memory _utility, uint256 _era) external view returns (uint256) {
+        return dapps[_utility].stakers[_user].eraBalance[_era];
+    }
 }   

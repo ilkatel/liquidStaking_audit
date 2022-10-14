@@ -96,7 +96,7 @@ describe("Presets", function () {
         distr = await ethers.getContractAt('NDistributorOld', cfg.distr, signer);
         
         
-        await nextEra();    
+        // await nextEra();    
     });
 
     it("print DS info", async function () {
@@ -105,69 +105,70 @@ describe("Presets", function () {
         console.log('current era: ', await dappsStaking.read_current_era());
     });
 
-    it("buffer test", async function () {
-        let _era = await era(); 
-        console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
-        lastEra = _era;
+    // it("buffer test", async function () {
+    //     let _era = await era(); 
+    //     console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
+    //     lastEra = _era;
 
-        expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(0);
+    //     expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(0);
 
-        let tx = await liquidStaking.stake({value: amount});
-        await tx.wait();
+    //     let tx = await liquidStaking.stake({value: amount});
+    //     await tx.wait();
 
-        try {
-            let tx = await liquidStaking.setting();
-            await tx.wait();
-        } catch(_) {}
-        console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
-        // await update();
-        // await update();
-        tx = await liquidStaking.eraShot(signer.address, consts.util, consts.dnt);
-        await tx.wait();
-        console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
-        expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(amount);
+    //     try {
+    //         let tx = await liquidStaking.setting();
+    //         await tx.wait();
+    //     } catch(_) {}
+    //     console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
+    //     // await update();
+    //     // await update();
+    //     tx = await liquidStaking.eraShot(signer.address, consts.util, consts.dnt);
+    //     await tx.wait();
+    //     console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
+    //     expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(amount);
 
-        await nextEra();
-        _era = await era();
+    //     await nextEra();
+    //     _era = await era();
 
-        expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(0);
-        tx = await liquidStaking.stake({value: amount});
-        await tx.wait();
-        console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
-        // await update();
-        // await update();     
-        tx = await liquidStaking.eraShot(signer.address, consts.util, consts.dnt);
-        await tx.wait();
-        console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
+    //     expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(0);
+    //     tx = await liquidStaking.stake({value: amount});
+    //     await tx.wait();
+    //     console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
+    //     // await update();
+    //     // await update();     
+    //     tx = await liquidStaking.eraShot(signer.address, consts.util, consts.dnt);
+    //     await tx.wait();
+    //     console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
 
-        expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(amount);
-        expect(await distr.getUserDntBalanceInUtil(signer.address, consts.dnt, consts.util)).to.be.eq(amount.mul(2));
-    });
+    //     expect(await liquidStaking.buffer(signer.address, _era)).to.be.eq(amount);
+    //     expect(await distr.getUserDntBalanceInUtil(signer.address, consts.dnt, consts.util)).to.be.eq(amount.mul(2));
+    // });
 
     it("storage migration test", async function () {
-        console.log(await ethers.provider.getBalance(liquidStaking.address));
-        console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
+        // console.log(await ethers.provider.getBalance(liquidStaking.address));
+        // console.log('last claimed: ', await liquidStaking.lastClaimed(), 'current era: ', await dappsStaking.read_current_era());
 
-        await nextEra();
-        let _era = await era();
+        // await nextEra();
+        // let _era = await era();
 
-        // await update();
-        // await update();
-        let tx = await liquidStaking.eraShot(signer.address, consts.util, consts.dnt);
-        await tx.wait();
+        // // await update();
+        // // await update();
+        // let tx = await liquidStaking.eraShot(signer.address, consts.util, consts.dnt);
+        // await tx.wait();
 
+        console.log(1);
         const liquidStakingFactory = await ethers.getContractFactory("contracts/upgredeable/LiquidStaking.sol:LiquidStaking");
         const liquidStaking1_5 = await upgrades.upgradeProxy(liquidStaking.address, liquidStakingFactory);
         await liquidStaking1_5.deployed();
         await liquidStaking1_5.deployTransaction.wait();
+        console.log(2);
+        // tx = await liquidStaking1_5.migrateStorage(signer.address);
+        // await tx.wait();
 
-        tx = await liquidStaking1_5.migrateStorage(signer.address);
-        await tx.wait();
-        
-        console.log(await liquidStaking1_5.lastEraTotalBalance());
-        console.log((await liquidStaking1_5.dapps(consts.util)).stakedBalance);
-        console.log(await liquidStaking1_5.getUserEraBalance(signer.address, consts.util, _era.sub(1)));
-        console.log(await liquidStaking1_5.getUserEraBalance(signer.address, consts.util, _era));
-        console.log(await liquidStaking1_5.getUserEraBalance(signer.address, consts.util, _era.add(1)));
+        // console.log(await liquidStaking1_5.lastEraTotalBalance());
+        // console.log((await liquidStaking1_5.dapps(consts.util)).stakedBalance);
+        // console.log(await liquidStaking1_5.getUserEraBalance(signer.address, consts.util, _era.sub(1)));
+        // console.log(await liquidStaking1_5.getUserEraBalance(signer.address, consts.util, _era));
+        // console.log(await liquidStaking1_5.getUserEraBalance(signer.address, consts.util, _era.add(1)));
     });
 });

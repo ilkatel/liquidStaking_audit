@@ -5,10 +5,7 @@
   "main": "index.js",
   "scripts": {
     "setup": "npx hardhat clean && npx hardhat compile",
-    "coverage": "npx hardhat coverage --network shidenLocal > C:/Users/Acer/Desktop/projects/liquid_stking1_5/out.txt",
-    "testing": "npx hardhat test --network shidenLocal > C:/Users/Acer/Desktop/projects/liquid_stking1_5/out.txt",
-    "gas": "npx hardhat test --network hardhat",
-    "deploy": "npx hardhat run scripts/deploy.ts --network shidenLocal"
+    "deploy": "npx hardhat run scripts/audit/deploy.ts --network shidenLocal"
   },
   "keywords": [],
   "author": "",

@@ -89,10 +89,10 @@ describe("Algem app", function () {
         console.log('balance: ', await acc.getBalance());
 
         liquidStaking = await ethers.getContractAt('LiquidStaking1_5', cfg.liquidStaking, signer);
-        dappsStaking = await ethers.getContractAt('DappsStaking', cfg.dappsStaking, signer);
+        dappsStaking = await ethers.getContractAt('contracts/common/interfaces/DappsStaking.sol:DappsStaking', cfg.dappsStaking, signer);
         nASTR = await ethers.getContractAt('NASTR1_5', cfg.nASTR, signer);
         distr = await ethers.getContractAt('NDistributor1_5', cfg.distr, signer);
-        mockDapp = await ethers.getContractAt('mockDapp', cfg.mockDapp, signer);
+        mockDapp = await ethers.getContractAt('contracts/common/mock/mockDapp.sol:mockDapp', cfg.mockDapp, signer);
 
         await nextEra();
     });
