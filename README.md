@@ -21,6 +21,8 @@ More details can be found with DappsStaking here: <br>
 * Interface: https://portal.astar.network/#/astar/dapp-staking/discover <br>
 * Docs: https://docs.astar.network/docs/dapp-staking/ <br>
 
+All ASTAR precompiles you can seen here https://docs.astar.network/docs/EVM/precompiles <br>
+
 # Smart-contracts
 
 * __LiquidStaking.sol__
