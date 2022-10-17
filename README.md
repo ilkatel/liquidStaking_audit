@@ -37,10 +37,14 @@ Used to control the number of DNT tokens staked by the user in various dapps. Si
 > _Contains 692 lines of code including comments and spaces_
 
 A contract similar in concept to NDistributor, but tracks the balances of DNT tokens from users who own NFT as well as their commissions and fees. <br>
+* __ArthswapAdapter.sol__
+> _Contains 429 lines of code including comments and spaces_
+
+The adapter contract is used to interact with Algem partners. Through it, the user can use his funds to earn additional income by selecting the application. After the user transfers funds and tokens to the adapter, they are sent to the partner's contract and start generating income, which is recorded on the balance of the adapter. The adapter monitors the user's balances and, upon request, withdraws the user's funds and their rewards. The adapter concept was introduced to improve the reliability of the Algem application and eliminate some vulnerabilities. <br>
 * __AdaptersDistributor.sol__
 > _Contains 96 lines of code including comments and spaces_
 
-A simple contract to keep track of the user's balances in adapters in each era. After that, the total balance in all adapters is updated for the user in the LiquidStaking contract in the "AdaptersUtility" utility <br>
+A simple contract to keep track of the user's balances in adapters in each era. After that, the total balance in all adapters is updated for the user in the LiquidStaking contract in the "AdaptersUtility" utility. <br>
 * __NASTR.sol__
 > _Contains 156 lines of code including comments and spaces_
 
