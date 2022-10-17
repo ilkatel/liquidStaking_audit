@@ -87,7 +87,7 @@ networks: {
 4) In order to be able to stake in a dapp through the DappsStaking module, you first need to register it. Since the latest updates to Astar-collator, registering a dapp can only be done using sudo access, so registering a dapp via a function call will fail. You can register dapp by following the link http://80.78.24.17/#/sudo . To do this, select __dappsStaking__ and __register(developer, contractId)__ in the drop-down lists and choose any of the available accounts. Then select __Evm__ and enter the address of the dapp. Only one dapp can be registered per account! To register a dapp, you need to have money on the account balance. To top up account balance, go to ```Accounts->Transfer``` and transfer funds from any of the default accounts (Alice, Bob, Charlie, etc) which have a default balance. Remember that if several dapps are used in tests, then they all need to be registered in DappsStaking! If you run out of accounts, you can create them in the ```Accounts``` tab.
 5) Before each launch of the test chain, you need to redeploy all contracts. To deploy contracts, enter your addresses in hardhat config and replenish their balances.
 
-Run test example: 
+Run test example: <br>
 ```npx hardhat test test/audit/liquid_staking.ts --network shidenLocal``` <br>
 
 ```npx hardhat test test/audit/nft_distributor.ts --network shidenLocal``` <br>
