@@ -94,6 +94,8 @@ Run test example: <br>
 
 ```npx hardhat test test/audit/discount_from_nft.ts --network shidenLocal``` <br>
 
+```npx hardhat test test/audit_adapter/ArthswapAdapter.js --network hardhat``` <br>
+
 All test logs located in __.txt__ files in test folder.
 
 # Deploy
