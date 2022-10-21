@@ -40,6 +40,9 @@ A contract similar in concept to NDistributor, but tracks the balances of DNT to
 * __ArthswapAdapter.sol__
 > _Contains 429 lines of code including comments and spaces_
 
+* __ZenlinkAdapter.sol__
+> _Contains 508 lines of code including comments and spaces_
+
 The adapter contract is used to interact with Algem partners. Through it, the user can use his funds to earn additional income by selecting the application. After the user transfers funds and tokens to the adapter, they are sent to the partner's contract and start generating income, which is recorded on the balance of the adapter. The adapter monitors the user's balances and, upon request, withdraws the user's funds and their rewards. The adapter concept was introduced to improve the reliability of the Algem application and eliminate some vulnerabilities. <br>
 * __AdaptersDistributor.sol__
 > _Contains 96 lines of code including comments and spaces_
