@@ -38,8 +38,10 @@ contract MockZenlinkMasterChef {
         lp.transfer(msg.sender, amount);
     }
 
-    function pendingRewards(uint256 pid, address user) external view returns (uint256) {
-        return (block.number - lastBlock) * 1e9;
+    function pendingRewards(uint256 pid, address user) external view returns (uint256[] memory, uint256) {
+        uint256[] memory arr = new uint256[](2);
+        arr[0] = (block.number - lastBlock) * 1e9;
+        return (arr, 0);
     }
 
     function claim(uint256 pid) external {
