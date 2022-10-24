@@ -232,7 +232,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     {
         require(_amount > 0, "Should be greater than zero");
         require(
-            lp.balanceOf(msg.sender) >= _amount,
+            _amount <= lp.balanceOf(msg.sender),
             "Not enough LP tokens on balance"
         );
 
