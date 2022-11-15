@@ -185,7 +185,7 @@ contract LiquidStaking is AccessControl {
         dapps[_dntUtil].dappAddress = address(this);
     }
 
-    function initialize2(address _nftDistr, address _adaptersDistr) external {
+    function initialize2(address _nftDistr, address _adaptersDistr) external onlyRole(MANAGER) {
         nftDistr = INFTDistributor(_nftDistr);
         adaptersDistr = IAdaptersDistributor(_adaptersDistr);
 
