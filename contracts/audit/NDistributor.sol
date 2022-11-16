@@ -247,6 +247,13 @@ contract NDistributor is AccessControl {
         disallowList[_utility] = true;
     }
 
+    function removeUtilityFromDisallowList(string memory _utility)
+        public
+        onlyRole(MANAGER)
+    {
+        disallowList[_utility] = false;
+    }
+
     // -------------------------------------------------------------------------------------------------------
     // ------------------------------- Asset managment (utilities and DNTs tracking)
     // -------------------------------------------------------------------------------------------------------
