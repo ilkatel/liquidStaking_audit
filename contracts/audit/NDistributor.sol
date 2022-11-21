@@ -161,8 +161,7 @@ contract NDistributor is AccessControl {
     function initialize2() external {
         require(!isCalled, "Already called");
         isCalled = true;
-        // commented for local tests
-        // isUtility["LiquidStaking"] = true;
+        isUtility["LiquidStaking"] = true;
         isUtility["null"] = true;
 
         totalDnt["nASTR"] = totalDntInUtil["LiquidStaking"];
@@ -226,6 +225,7 @@ contract NDistributor is AccessControl {
 
         _revokeRole(MANAGER, _manager);
         managerIds[_manager] = 0;
+        managerIds[managers[id]] = id;
     }
 
     /// @notice removes manager role
@@ -245,6 +245,13 @@ contract NDistributor is AccessControl {
         onlyRole(MANAGER)
     {
         disallowList[_utility] = true;
+    }
+
+    function removeUtilityFromDisallowList(string memory _utility)
+        public
+        onlyRole(MANAGER)
+    {
+        disallowList[_utility] = false;
     }
 
     // -------------------------------------------------------------------------------------------------------
@@ -770,7 +777,7 @@ contract NDistributor is AccessControl {
 
     /// @notice allows to specify DNT token contract address
     /// @param _dnt => dnt name
-    function _setDntInterface(string memory _dnt) internal onlyRole(MANAGER) {
+    function _setDntInterface(string memory _dnt) internal {
         address contractAddr = dntContracts[_dnt];
 
         require(contractAddr != address(0x00), "Invalid address!");
@@ -838,10 +845,4 @@ contract NDistributor is AccessControl {
         _revokeRole(role, account);
     }
 
-    function setup() external onlyRole(MANAGER) {
-        require(!isCalled, "Allready called");
-        isCalled = true;
-        isUtility["LiquidStaking"] = true;
-        isUtility["null"] = true;
-    }
 }

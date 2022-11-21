@@ -35,6 +35,7 @@ contract NASTR is
         require(_distributor.isContract(), "_distributor should be contract address");
         _grantRole(DISTR_ROLE, _distributor);
         _grantRole(OWNER_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         distributor = NDistributor(_distributor);
     }
 
