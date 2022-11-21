@@ -322,14 +322,14 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     // @notice Receives portion of total rewards in ARSW tokens from the farm contract
     function updatePoolRewards() private {
+        if (totalStakedLp == 0) return;
+        
         uint256 beforeArsw = arswToken.balanceOf(address(this));
         farm.harvest(pid, address(this));
         uint256 afterArsw = arswToken.balanceOf(address(this));
         uint256 receivedRewards = afterArsw > beforeArsw
             ? afterArsw - beforeArsw
             : 0;
-
-        if (totalStakedLp == 0) return;
 
         // increases accumulated rewards per 1 staked token
         accumulatedRewardsPerShare +=
