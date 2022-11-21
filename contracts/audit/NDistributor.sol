@@ -226,6 +226,7 @@ contract NDistributor is AccessControl {
 
         _revokeRole(MANAGER, _manager);
         managerIds[_manager] = 0;
+        managerIds[managers[id]] = id;
     }
 
     /// @notice removes manager role
