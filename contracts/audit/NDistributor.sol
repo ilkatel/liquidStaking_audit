@@ -161,8 +161,7 @@ contract NDistributor is AccessControl {
     function initialize2() external {
         require(!isCalled, "Already called");
         isCalled = true;
-        // commented for local tests
-        // isUtility["LiquidStaking"] = true;
+        isUtility["LiquidStaking"] = true;
         isUtility["null"] = true;
 
         totalDnt["nASTR"] = totalDntInUtil["LiquidStaking"];
@@ -846,10 +845,4 @@ contract NDistributor is AccessControl {
         _revokeRole(role, account);
     }
 
-    function setup() external onlyRole(MANAGER) {
-        require(!isCalled, "Allready called");
-        isCalled = true;
-        isUtility["LiquidStaking"] = true;
-        isUtility["null"] = true;
-    }
 }
