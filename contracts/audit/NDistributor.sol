@@ -777,7 +777,7 @@ contract NDistributor is AccessControl {
 
     /// @notice allows to specify DNT token contract address
     /// @param _dnt => dnt name
-    function _setDntInterface(string memory _dnt) internal onlyRole(MANAGER) {
+    function _setDntInterface(string memory _dnt) internal {
         address contractAddr = dntContracts[_dnt];
 
         require(contractAddr != address(0x00), "Invalid address!");
