@@ -94,6 +94,7 @@ contract NFTDistributor is AccessControl {
         dntName = "nASTR";
         adaptersDistributor = _adaptersDistributor;
 
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER, _adaptersDistributor);
         _grantRole(MANAGER, msg.sender);   
         _grantRole(MANAGER, _liquidStaking);   
@@ -489,6 +490,8 @@ contract NFTDistributor is AccessControl {
 
         Utility storage util_ = utils[utility];
 
+        uint256 utilAmountBefore = util_.totalAmount;
+
         if (to != address(0)) {
             if (_addDntToUser(utility, to, amount)) {
                 util_.totalAmount += amount;
@@ -503,7 +506,8 @@ contract NFTDistributor is AccessControl {
             }
         }
 
-        _updateTotalBalance(utility, util_.totalAmount);
+        if (util_.totalAmount != utilAmountBefore) _updateTotalBalance(utility, util_.totalAmount);
+
     }
     
     /// @notice function for redistribution of balances and fees for the user when adding DNT tokens to user.
