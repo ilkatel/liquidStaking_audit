@@ -808,16 +808,6 @@ contract NDistributor is AccessControl {
         emit TransferDntContractOwnership(_to, _dnt);
     }
 
-    /// @notice overrides required by Solidity
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
-
     /// @notice sets Liquid Staking contract
     function setLiquidStaking(address _liquidStaking)
         external
