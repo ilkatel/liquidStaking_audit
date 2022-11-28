@@ -48,7 +48,7 @@ contract AdaptersDistributor is AccessControl {
         _grantRole(ADAPTER, _contractAddress);
     }
 
-    function removeUtility(string memory _utility) public onlyRole(MANAGER) {
+    function removeAdapter(string memory _utility) public onlyRole(MANAGER) {
         require(haveAdapter[_utility], "Adapter not found");
 
         address adapterAddress = adapters[_utility].contractAddress;
