@@ -42,7 +42,7 @@ contract LiquidStaking is AccessControl {
         uint eraReq;
         uint lag;
     }
-    mapping(address => Withdrawal[]) public withdrawals;
+    mapping(address => Withdrawal[]) internal withdrawals;
 
     /* unused and will removed with next proxy update */// @notice useful values per era
     /* unused and will removed with next proxy update */struct eraData {
@@ -58,7 +58,7 @@ contract LiquidStaking is AccessControl {
     uint public lastUpdated; // last era updated everything
 
     // Reward handlers
-    address[] public stakers;
+    address[] internal stakers;
     /* unused and will removed with next proxy update */address public dntToken;
     mapping(address => bool) public isStaker;
 
@@ -75,7 +75,7 @@ contract LiquidStaking is AccessControl {
 
     /* unused and will removed with next proxy update */mapping(address => mapping(uint => uint)) public buffer;
     mapping(address => mapping(uint => uint[])) public usersShotsPerEra;  /* 1 -> 1.5 will removed with next proxy update */
-    mapping(address => uint) public totalUserRewards;
+    mapping(address => uint) internal totalUserRewards;
     /* unused and will removed with next proxy update */mapping(address => address) public lpHandlers;
 
     uint public eraShotsLimit;  /* 1 -> 1.5 will removed with next proxy update */
@@ -420,7 +420,7 @@ contract LiquidStaking is AccessControl {
         uint256 l = dappsList.length;
 
         /// @custom:defimoon-note separately, we collect rewards for the first unclaimed era and for all the rest.
-        /// this is due to the fact that <lastEtaTotalBalance> is updated at the moment of the previous era, 
+        /// this is due to the fact that <lastEraTotalBalance> is updated at the moment of the previous era, 
         /// and if the <updates()> function is not called in the next era, then the balance staked in the current era 
         /// will not participate in the <accumulatedRewardsPerShare> calculation.
         /// Therefore, to avoid such situations, the balance for subsequent eras is written to <eraBuffer>.
@@ -771,7 +771,7 @@ contract LiquidStaking is AccessControl {
             }
         }
 
-        require(transferAmount > 0, "Nothing to cliam");
+        require(transferAmount > 0, "Nothing to claim");
         payable(msg.sender).sendValue(transferAmount);
 
         emit Claimed(msg.sender, transferAmount);
