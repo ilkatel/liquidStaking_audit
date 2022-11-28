@@ -73,9 +73,9 @@ contract AdaptersDistributor is AccessControl {
 
         if (amountBefore == amountAfter) return;
 
-        totalAmount += amountAfter - amountBefore;
-        userAmount[user] += amountAfter - amountBefore;
-        adapters[_adapter].userAmount[user] += amountAfter - amountBefore;
+        totalAmount = totalAmount + amountAfter - amountBefore;
+        userAmount[user] = userAmount[user] + amountAfter - amountBefore;
+        adapters[_adapter].userAmount[user] = amountAfter;
 
         if (amountAfter > amountBefore) {
             nftDistr.transferDnt(utilName, address(0), user, amountAfter - amountBefore);

@@ -79,6 +79,8 @@ contract NFTDistributor is AccessControl {
     mapping(string => uint256) public utilId;
     string[] utilsList;
 
+    mapping(string => bool) public isUtilRemoved;
+
     constructor(
         address _distr,
         address _nAstr,
@@ -268,6 +270,7 @@ contract NFTDistributor is AccessControl {
         require(_rewardFee > 0, "Cant set zero fee");
 
         string memory _utilName = Algem721(_contractAddress).utilName();
+        require(!isUtilRemoved[_utilName], "Utility blacklisted!");
         require(!haveUtil[_utilName], "Already have utility");
 
         utils[_utilName].rewardFee = _rewardFee;
@@ -292,6 +295,8 @@ contract NFTDistributor is AccessControl {
         utilsList[_utilId] = utilsList[utilsList.length - 1];
         utilId[utilsList[_utilId]] = _utilId;
         utilsList.pop();
+
+        isUtilRemoved[_utilName] = true;
 
         _revokeRole(TOKEN_CONTRACT, utilAddress);
     }

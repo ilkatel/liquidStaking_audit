@@ -14,6 +14,8 @@ contract Algem721 is ERC721PresetMinterPauserAutoIdUpgradeable {
     string public _baseTokenURI;
     uint256 public maxSupply;
 
+    bool public initialized;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -35,6 +37,8 @@ contract Algem721 is ERC721PresetMinterPauserAutoIdUpgradeable {
         string memory _utilName,
         uint256 _maxSupply
     ) external onlyRole(MANAGER_ROLE) {
+        require(!initialized, "Already initialized!");
+        initialized = true;
         nftDistr = NFTDistributor(_nftDistr);
         utilName = _utilName;
         maxSupply = _maxSupply;
