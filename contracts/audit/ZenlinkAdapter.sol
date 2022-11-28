@@ -120,6 +120,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "Not enough ZLK revenue"
         );
         require(_amount > 0, "Should be greater than zero");
+        require(revenuePool >= _amount, "Insufficient funds in the revenue pool");
         revenuePool -= _amount;
         zlkToken.safeTransfer(msg.sender, _amount);
     }
