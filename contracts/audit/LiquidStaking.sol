@@ -354,7 +354,7 @@ contract LiquidStaking is AccessControl {
     /// @param _utilities => utilities from claim
     /// @param _amounts => amounts from claim
     function claim(string[] memory _utilities, uint256[] memory _amounts)
-    public
+    external
     checkArrays(_utilities, _amounts)
     updateAll 
     updateRewards(msg.sender, _utilities) {
@@ -874,7 +874,7 @@ contract LiquidStaking is AccessControl {
     
     /// @notice return users rewards
     /// @param _user => user address
-    function getUserRewards(address _user) public view returns (uint) {
+    function getUserRewards(address _user) external view returns (uint) {
         return totalUserRewards[_user];
     }
 
@@ -965,7 +965,7 @@ contract LiquidStaking is AccessControl {
     // ///      for each user to calculate his rewards for the past era
     // /// @dev before starting the migration, you need to make a claim of 
     // ///      rewards for all past eras and call the sync function for all non-updated eras
-    // function migrateStorage(address _user) public onlyRole(MANAGER) {
+    // function migrateStorage(address _user) external onlyRole(MANAGER) {
     //     if (_user == address(0)) return;
 
     //     uint256 _era = currentEra();
