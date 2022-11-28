@@ -111,6 +111,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "Not enough ARSW revenue"
         );
         require(_amount > 0, "Should be greater than zero");
+        require(revenuePool >= _amount, "Insufficient funds in the revenue pool");
         revenuePool -= _amount;
         arswToken.safeTransfer(msg.sender, _amount);
     }
@@ -211,7 +212,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         payable(msg.sender).sendValue(amountASTR);
 
-        emit RemoveLiquidity(msg.sender, amountToken, amountASTR);
+        emit RemoveLiquidity(msg.sender, _amount, amountASTR);
     }
 
     // @notice With this function users can transfer
