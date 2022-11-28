@@ -371,7 +371,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Needs to check user rewards
     // @param _user User address
     // @return sum Amount of penging rewards
-    function pendingRewards(address _user) public view returns (uint256 sum) {
+    function pendingRewards(address _user) external view returns (uint256 sum) {
         uint256 stakedAmount = depositedLp[_user];
         if (stakedAmount > 0) {
             sum =
@@ -417,13 +417,13 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Technical function, that shadows depositedLp functionality
     //         Needed to using the same abi for all adapters
     // @return Amount of depoposited LP by user
-    function gaugeBalances(address _user) public view returns (uint256) {
+    function gaugeBalances(address _user) external view returns (uint256) {
         return depositedLp[_user];
     }
 
     // @notice To get total amount of locked tokens in pool for front-end
     // @return Total amount of tokens in pool
-    function totalReserves() public view returns (uint256 sum) {
+    function totalReserves() external view returns (uint256 sum) {
         (uint256 astr, uint256 nastr) = _getSortedReserves();
         sum = nastr + astr;
     }
@@ -440,7 +440,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @return apr Annual Percentage Rate
     function getInfo(
         uint256 astrPrice
-    ) public view returns (uint256 tvl, uint256 apr) {
+    ) external view returns (uint256 tvl, uint256 apr) {
         require(astrPrice > 0, "Zero address alarm");
         IZenlinkPair zlkAstrPair = IZenlinkPair(0xba75fD35762e1dA55bc1893B3c0845BEee833d52);
         uint256 PRICE_PRECISION = 10000;
@@ -466,7 +466,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Used to calculate LP amount by giving nASTR and ASTR
     // @param _amounts Amounts of tokens. ASTR amount at idx 0
     // @return LP amount
-    function getLpAmount(uint256[] memory _amounts) public view returns (uint256 amount) {
+    function getLpAmount(uint256[] memory _amounts) external view returns (uint256 amount) {
         (uint256 astrRsrvs, uint256 nastrRsrvs) = _getSortedReserves();
         uint256 totalSupply = lp.totalSupply();
         uint256 shareNastr = _amounts[1] * totalSupply / nastrRsrvs;
