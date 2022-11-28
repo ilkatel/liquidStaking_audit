@@ -118,6 +118,9 @@ contract NDistributor is AccessControl {
     mapping(address => mapping(string => uint256)) public userUtitliesIdx;
     mapping(address => mapping(string => uint256)) public userDntsIdx;
 
+    // @notice needed to implement grant/claim ownership pattern
+    address private _grantedOwner;
+
     event Transfer(
         address indexed _from,
         address indexed _to,
@@ -139,6 +142,7 @@ contract NDistributor is AccessControl {
     event SetLiquidStaking(address indexed liquidStakingAddress);
     event TransferDntContractOwnership(address indexed to, string indexed dnt);
     event AddUtility(string indexed newUtility);
+    event OwnershipTransferred(address indexed owner, address indexed grantedOwner);
 
     using Address for address;
     
@@ -179,17 +183,21 @@ contract NDistributor is AccessControl {
     // ------------------------------- Role managment
     // -------------------------------------------------------------------------------------------------------
 
-    /// @notice changes owner roles
+    /// @notice propose a new owner
     /// @param _newOwner => new contract owner
-    function changeOwner(address _newOwner)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function grantOwnership(address _newOwner) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_newOwner != address(0), "Zero address alarm!");
         require(_newOwner != owner, "Trying to set the same owner");
+        _grantedOwner = _newOwner;
+    }
+
+    /// @notice claim ownership by granted address
+    function claimOwnership() external {
+        require(_grantedOwner == msg.sender, "Caller is not the granted owner");
         _revokeRole(DEFAULT_ADMIN_ROLE, owner);
-        _grantRole(DEFAULT_ADMIN_ROLE, _newOwner);
-        owner = _newOwner;
+        _grantRole(DEFAULT_ADMIN_ROLE, _grantedOwner);
+        owner = _grantedOwner;
+        emit OwnershipTransferred(owner, _grantedOwner);
     }
 
     /// @notice returns the list of all managers
@@ -798,16 +806,6 @@ contract NDistributor is AccessControl {
         DNTContract.transferOwnership(_to);
 
         emit TransferDntContractOwnership(_to, _dnt);
-    }
-
-    /// @notice overrides required by Solidity
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 
     /// @notice sets Liquid Staking contract
