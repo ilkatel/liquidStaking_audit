@@ -420,7 +420,7 @@ contract LiquidStaking is AccessControl {
         uint256 l = dappsList.length;
 
         /// @custom:defimoon-note separately, we collect rewards for the first unclaimed era and for all the rest.
-        /// this is due to the fact that <lastEtaTotalBalance> is updated at the moment of the previous era, 
+        /// this is due to the fact that <lastEraTotalBalance> is updated at the moment of the previous era, 
         /// and if the <updates()> function is not called in the next era, then the balance staked in the current era 
         /// will not participate in the <accumulatedRewardsPerShare> calculation.
         /// Therefore, to avoid such situations, the balance for subsequent eras is written to <eraBuffer>.
@@ -771,7 +771,7 @@ contract LiquidStaking is AccessControl {
             }
         }
 
-        require(transferAmount > 0, "Nothing to cliam");
+        require(transferAmount > 0, "Nothing to claim");
         payable(msg.sender).sendValue(transferAmount);
 
         emit Claimed(msg.sender, transferAmount);
