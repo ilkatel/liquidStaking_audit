@@ -249,7 +249,7 @@ contract NDistributor is AccessControl {
     }
 
     function addUtilityToDisallowList(string memory _utility)
-        public
+        external
         onlyRole(MANAGER)
     {
         disallowList[_utility] = true;
@@ -328,7 +328,7 @@ contract NDistributor is AccessControl {
     /// @param _id => utility id
     /// @param _state => desired state
     function setUtilityStatus(uint256 _id, bool _state)
-        public
+        external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(_id < utilityDB.length, "Not found utility with such id");
@@ -340,7 +340,7 @@ contract NDistributor is AccessControl {
     /// @param _id => DNT id
     /// @param _state => desired state
     function setDntStatus(uint256 _id, bool _state)
-        public
+        external
         onlyRole(DEFAULT_ADMIN_ROLE) 
     {
         require(_id < dntDB.length, "Not found dnt with such id");
@@ -351,7 +351,7 @@ contract NDistributor is AccessControl {
     /// @notice returns a list of user's DNT tokens in possession
     /// @param _user => user address
     /// @return userDnts => all user dnts
-    function listUserDnts(address _user) public view returns (string[] memory) {
+    function listUserDnts(address _user) external view returns (string[] memory) {
         return users[_user].userDnts;
     }
 
@@ -392,7 +392,7 @@ contract NDistributor is AccessControl {
         address _user,
         string memory _util,
         string memory _dnt
-    ) public view returns (uint256) {
+    ) external view returns (uint256) {
         require(_user != address(0), "Shouldn't be zero address");
         return users[_user].dnt[_dnt].dntInUtil[_util];
     }
@@ -402,7 +402,7 @@ contract NDistributor is AccessControl {
     /// @param _dnt => DNT token name
     /// @return utilsList => all user utils are used with specific DNT token
     function getUserUtilsInDnt(address _user, string memory _dnt)
-        public
+        external
         view
         returns (string[] memory)
     {
@@ -414,7 +414,7 @@ contract NDistributor is AccessControl {
     /// @param _dnt => DNT token name
     /// @return dntBalance => current user balance in dnt
     function getUserDntBalance(address _user, string memory _dnt)
-        public
+        external
         dntInterface(_dnt)
         returns (uint256)
     {
