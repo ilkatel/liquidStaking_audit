@@ -212,7 +212,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         payable(msg.sender).sendValue(amountASTR);
 
-        emit RemoveLiquidity(msg.sender, amountToken, amountASTR);
+        emit RemoveLiquidity(msg.sender, _amount, amountASTR);
     }
 
     // @notice With this function users can transfer
