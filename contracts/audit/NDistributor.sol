@@ -118,6 +118,9 @@ contract NDistributor is AccessControl {
     mapping(address => mapping(string => uint256)) public userUtitliesIdx;
     mapping(address => mapping(string => uint256)) public userDntsIdx;
 
+    // @notice needed to implement grant/claim ownership pattern
+    address private _grantedOwner;
+
     event Transfer(
         address indexed _from,
         address indexed _to,
@@ -139,6 +142,7 @@ contract NDistributor is AccessControl {
     event SetLiquidStaking(address indexed liquidStakingAddress);
     event TransferDntContractOwnership(address indexed to, string indexed dnt);
     event AddUtility(string indexed newUtility);
+    event OwnershipTransferred(address indexed owner, address indexed grantedOwner);
 
     using Address for address;
     
@@ -179,17 +183,21 @@ contract NDistributor is AccessControl {
     // ------------------------------- Role managment
     // -------------------------------------------------------------------------------------------------------
 
-    /// @notice changes owner roles
+    /// @notice propose a new owner
     /// @param _newOwner => new contract owner
-    function changeOwner(address _newOwner)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function grantOwnership(address _newOwner) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_newOwner != address(0), "Zero address alarm!");
         require(_newOwner != owner, "Trying to set the same owner");
+        _grantedOwner = _newOwner;
+    }
+
+    /// @notice claim ownership by granted address
+    function claimOwnership() external {
+        require(_grantedOwner == msg.sender, "Caller is not the granted owner");
         _revokeRole(DEFAULT_ADMIN_ROLE, owner);
-        _grantRole(DEFAULT_ADMIN_ROLE, _newOwner);
-        owner = _newOwner;
+        _grantRole(DEFAULT_ADMIN_ROLE, _grantedOwner);
+        owner = _grantedOwner;
+        emit OwnershipTransferred(owner, _grantedOwner);
     }
 
     /// @notice returns the list of all managers
@@ -241,7 +249,7 @@ contract NDistributor is AccessControl {
     }
 
     function addUtilityToDisallowList(string memory _utility)
-        public
+        external
         onlyRole(MANAGER)
     {
         disallowList[_utility] = true;
@@ -320,7 +328,7 @@ contract NDistributor is AccessControl {
     /// @param _id => utility id
     /// @param _state => desired state
     function setUtilityStatus(uint256 _id, bool _state)
-        public
+        external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(_id < utilityDB.length, "Not found utility with such id");
@@ -332,7 +340,7 @@ contract NDistributor is AccessControl {
     /// @param _id => DNT id
     /// @param _state => desired state
     function setDntStatus(uint256 _id, bool _state)
-        public
+        external
         onlyRole(DEFAULT_ADMIN_ROLE) 
     {
         require(_id < dntDB.length, "Not found dnt with such id");
@@ -343,7 +351,7 @@ contract NDistributor is AccessControl {
     /// @notice returns a list of user's DNT tokens in possession
     /// @param _user => user address
     /// @return userDnts => all user dnts
-    function listUserDnts(address _user) public view returns (string[] memory) {
+    function listUserDnts(address _user) external view returns (string[] memory) {
         return users[_user].userDnts;
     }
 
@@ -384,7 +392,7 @@ contract NDistributor is AccessControl {
         address _user,
         string memory _util,
         string memory _dnt
-    ) public view returns (uint256) {
+    ) external view returns (uint256) {
         require(_user != address(0), "Shouldn't be zero address");
         return users[_user].dnt[_dnt].dntInUtil[_util];
     }
@@ -394,7 +402,7 @@ contract NDistributor is AccessControl {
     /// @param _dnt => DNT token name
     /// @return utilsList => all user utils are used with specific DNT token
     function getUserUtilsInDnt(address _user, string memory _dnt)
-        public
+        external
         view
         returns (string[] memory)
     {
@@ -406,7 +414,7 @@ contract NDistributor is AccessControl {
     /// @param _dnt => DNT token name
     /// @return dntBalance => current user balance in dnt
     function getUserDntBalance(address _user, string memory _dnt)
-        public
+        external
         dntInterface(_dnt)
         returns (uint256)
     {
@@ -454,6 +462,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) external dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(_to != address(0), "Zero address alarm!");
         require(msg.sender == address(liquidStaking), "Only for LiquidStaking");
         require(
@@ -480,6 +489,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) private dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(_to != address(0), "Zero address alarm!");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
@@ -536,6 +546,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) external onlyRole(MANAGER) dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
             "Invalid utility!"
@@ -563,6 +574,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) private dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
             "Invalid utility!"
@@ -798,16 +810,6 @@ contract NDistributor is AccessControl {
         DNTContract.transferOwnership(_to);
 
         emit TransferDntContractOwnership(_to, _dnt);
-    }
-
-    /// @notice overrides required by Solidity
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 
     /// @notice sets Liquid Staking contract
