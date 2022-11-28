@@ -42,7 +42,7 @@ contract LiquidStaking is AccessControl {
         uint eraReq;
         uint lag;
     }
-    mapping(address => Withdrawal[]) public withdrawals;
+    mapping(address => Withdrawal[]) internal withdrawals;
 
     /* unused and will removed with next proxy update */// @notice useful values per era
     /* unused and will removed with next proxy update */struct eraData {
@@ -58,7 +58,7 @@ contract LiquidStaking is AccessControl {
     uint public lastUpdated; // last era updated everything
 
     // Reward handlers
-    address[] public stakers;
+    address[] internal stakers;
     /* unused and will removed with next proxy update */address public dntToken;
     mapping(address => bool) public isStaker;
 
@@ -75,7 +75,7 @@ contract LiquidStaking is AccessControl {
 
     /* unused and will removed with next proxy update */mapping(address => mapping(uint => uint)) public buffer;
     mapping(address => mapping(uint => uint[])) public usersShotsPerEra;  /* 1 -> 1.5 will removed with next proxy update */
-    mapping(address => uint) public totalUserRewards;
+    mapping(address => uint) internal totalUserRewards;
     /* unused and will removed with next proxy update */mapping(address => address) public lpHandlers;
 
     uint public eraShotsLimit;  /* 1 -> 1.5 will removed with next proxy update */
