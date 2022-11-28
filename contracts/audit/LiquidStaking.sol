@@ -169,7 +169,6 @@ contract LiquidStaking is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER, msg.sender);
         setMinStakeAmount(10);
-        minStakeAmount = 10;
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
 
         distr = NDistributor(_distrAddr);
