@@ -462,6 +462,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) external dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(_to != address(0), "Zero address alarm!");
         require(msg.sender == address(liquidStaking), "Only for LiquidStaking");
         require(
@@ -488,6 +489,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) private dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(_to != address(0), "Zero address alarm!");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
@@ -544,6 +546,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) external onlyRole(MANAGER) dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
             "Invalid utility!"
@@ -571,6 +574,7 @@ contract NDistributor is AccessControl {
         string memory _utility,
         string memory _dnt
     ) private dntInterface(_dnt) {
+        require(_amount > 0, "Amount should be greater than zero");
         require(
             utilityDB[utilityId[_utility]].isActive == true,
             "Invalid utility!"
