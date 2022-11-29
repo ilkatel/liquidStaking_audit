@@ -231,9 +231,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         lp.safeTransferFrom(msg.sender, address(this), _amount);
         lpBalances[msg.sender] += _amount;
 
-        if (_autoDeposit) {
-            depositLP(_amount);
-        }
+        depositLP(_amount);
     }
 
     // @notice Deposit LP tokens to ARSW allocation
