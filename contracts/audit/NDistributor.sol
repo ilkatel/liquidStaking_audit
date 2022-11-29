@@ -344,6 +344,8 @@ contract NDistributor is AccessControl {
     /// @param _user => user address
     /// @return userDnts => all user dnts
     function listUserDnts(address _user) public view returns (string[] memory) {
+        require(_user != address(0), "Shouldn't be zero address");
+
         return users[_user].userDnts;
     }
 
@@ -352,6 +354,8 @@ contract NDistributor is AccessControl {
     /// @param _dnt => dnt name
     /// @return userUtils => all user utils in dnt
     function listUserUtilitiesInDnt(address _user, string memory _dnt) public view returns (string[] memory) {
+        require(_user != address(0), "Shouldn't be zero address");
+
         return users[_user].dnt[_dnt].userUtils;
     }
 
@@ -361,6 +365,8 @@ contract NDistributor is AccessControl {
     /// @return dntBalances => dnt balances in utils
     /// @return usrUtils => all user utils in dnt
     function listUserDntInUtils(address _user, string memory _dnt) external view returns (string[] memory, uint256[] memory) {
+        require(_user != address(0), "Shouldn't be zero address");
+
         string[] memory _utilities = listUserUtilitiesInDnt(_user, _dnt);
 
         uint256 l = _utilities.length;
