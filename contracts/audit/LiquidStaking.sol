@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.4;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -165,7 +165,7 @@ contract LiquidStaking is AccessControl {
         DNTname = _dntName;
         utilName = _dntUtil;
 
-        uint256 era = DAPPS_STAKING.read_current_era() - 1;
+        uint256 era = currentEra() - 1;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER, msg.sender);
         setMinStakeAmount(10);
@@ -382,7 +382,7 @@ contract LiquidStaking is AccessControl {
 
     /// @notice finish previously opened withdrawal
     /// @param _id => withdrawal index
-    function withdraw(uint _id) external updateAll() {
+    function withdraw(uint _id) external updateAll {
         Withdrawal storage withdrawal = withdrawals[msg.sender][_id];
         uint val = withdrawal.val;
         uint era = currentEra();
@@ -676,7 +676,7 @@ contract LiquidStaking is AccessControl {
     /// @notice add new staker and save balances
     /// @param  _addr => user to add
     /// @param  _utility => user utility
-    function addStaker(address _addr, string memory _utility) external onlyDistributor() {
+    function addStaker(address _addr, string memory _utility) external onlyDistributor {
         if (!isStaker[msg.sender]) {
             stakers.push(_addr);
             isStaker[_addr] = true;
