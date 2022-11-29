@@ -183,6 +183,8 @@ contract NFTDistributor is AccessControl {
 
         Utility storage util_ = utils[utility];
 
+        uint256 utilAmountBefore = util_.totalAmount;
+
         if (to != address(0)) {
             if (_addNftToUser(utility, to)) {
                 uint256 utilityAmount = distr.getUserDntBalanceInUtil(to, utility, dntName);
@@ -197,7 +199,8 @@ contract NFTDistributor is AccessControl {
                 _updateUserBalance(utility, from, 0);
             }
         }
-        _updateTotalBalance(utility, util_.totalAmount);
+
+        if (util_.totalAmount != utilAmountBefore) _updateTotalBalance(utility, util_.totalAmount);
     }
 
     // *
