@@ -73,12 +73,6 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _;
     }
 
-    // @notice check if the caller is an external owned account
-    modifier notAllowContract() {
-        require(tx.origin == msg.sender, "Allows only for EOA");
-        _;
-    }
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -117,6 +111,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "Not enough ARSW revenue"
         );
         require(_amount > 0, "Should be greater than zero");
+        require(revenuePool >= _amount, "Insufficient funds in the revenue pool");
         revenuePool -= _amount;
         arswToken.safeTransfer(msg.sender, _amount);
     }
@@ -128,7 +123,6 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function addLiquidity(uint256[] calldata _amounts, bool _autoStake)
         external
         payable
-        notAllowContract
         nonReentrant
     {
         require(
@@ -184,7 +178,6 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @param _amount Number of LP tokens ot remove
     function removeLiquidity(uint256 _amount)
         public
-        notAllowContract
         nonReentrant
     {
         require(_amount > 0, "Should be greater than zero");
@@ -219,7 +212,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         payable(msg.sender).sendValue(amountASTR);
 
-        emit RemoveLiquidity(msg.sender, amountToken, amountASTR);
+        emit RemoveLiquidity(msg.sender, _amount, amountASTR);
     }
 
     // @notice With this function users can transfer
@@ -227,7 +220,6 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @param _autoDeposit Allows to deposit LP at the same tx
     function addLp(uint256 _amount, bool _autoDeposit)
         external
-        notAllowContract
         nonReentrant
     {
         require(_amount > 0, "Should be greater than zero");
@@ -246,7 +238,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     // @notice Deposit LP tokens to ARSW allocation
     // @param _amount Number of LP tokens
-    function depositLP(uint256 _amount) public update notAllowContract {
+    function depositLP(uint256 _amount) public update {
         require(lpBalances[msg.sender] >= _amount, "Not enough LP tokens");
         require(_amount > 0, "Should be greater than zero");
 
@@ -274,7 +266,6 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function withdrawLP(uint256 _amount, bool _autoWithdraw)
         external
         update
-        notAllowContract
     {
         require(
             depositedLp[msg.sender] >= _amount,
@@ -322,14 +313,14 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     // @notice Receives portion of total rewards in ARSW tokens from the farm contract
     function updatePoolRewards() private {
+        if (totalStakedLp == 0) return;
+        
         uint256 beforeArsw = arswToken.balanceOf(address(this));
         farm.harvest(pid, address(this));
         uint256 afterArsw = arswToken.balanceOf(address(this));
         uint256 receivedRewards = afterArsw > beforeArsw
             ? afterArsw - beforeArsw
             : 0;
-
-        if (totalStakedLp == 0) return;
 
         // increases accumulated rewards per 1 staked token
         accumulatedRewardsPerShare +=
@@ -357,7 +348,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     // @notice For claim rewards by users
-    function claim() external update notAllowContract nonReentrant {
+    function claim() external update nonReentrant {
         require(rewards[msg.sender] > 0, "User has no any rewards");
         uint256 comissionPart = rewards[msg.sender] / REVENUE_FEE; // 10% comission part which go to revenue pool
         uint256 rewardsToClaim = rewards[msg.sender] - comissionPart;

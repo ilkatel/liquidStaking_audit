@@ -42,7 +42,7 @@ contract LiquidStaking is AccessControl {
         uint eraReq;
         uint lag;
     }
-    mapping(address => Withdrawal[]) public withdrawals;
+    mapping(address => Withdrawal[]) internal withdrawals;
 
     /* unused and will removed with next proxy update */// @notice useful values per era
     /* unused and will removed with next proxy update */struct eraData {
@@ -58,7 +58,7 @@ contract LiquidStaking is AccessControl {
     uint public lastUpdated; // last era updated everything
 
     // Reward handlers
-    address[] public stakers;
+    address[] internal stakers;
     /* unused and will removed with next proxy update */address public dntToken;
     mapping(address => bool) public isStaker;
 
@@ -75,7 +75,7 @@ contract LiquidStaking is AccessControl {
 
     /* unused and will removed with next proxy update */mapping(address => mapping(uint => uint)) public buffer;
     mapping(address => mapping(uint => uint[])) public usersShotsPerEra;  /* 1 -> 1.5 will removed with next proxy update */
-    mapping(address => uint) public totalUserRewards;
+    mapping(address => uint) internal totalUserRewards;
     /* unused and will removed with next proxy update */mapping(address => address) public lpHandlers;
 
     uint public eraShotsLimit;  /* 1 -> 1.5 will removed with next proxy update */
@@ -169,7 +169,6 @@ contract LiquidStaking is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER, msg.sender);
         setMinStakeAmount(10);
-        minStakeAmount = 10;
         withdrawBlock = DAPPS_STAKING.read_unbonding_period();
 
         distr = NDistributor(_distrAddr);
@@ -355,7 +354,7 @@ contract LiquidStaking is AccessControl {
     /// @param _utilities => utilities from claim
     /// @param _amounts => amounts from claim
     function claim(string[] memory _utilities, uint256[] memory _amounts)
-    public
+    external
     checkArrays(_utilities, _amounts)
     updateAll 
     updateRewards(msg.sender, _utilities) {
@@ -421,7 +420,7 @@ contract LiquidStaking is AccessControl {
         uint256 l = dappsList.length;
 
         /// @custom:defimoon-note separately, we collect rewards for the first unclaimed era and for all the rest.
-        /// this is due to the fact that <lastEtaTotalBalance> is updated at the moment of the previous era, 
+        /// this is due to the fact that <lastEraTotalBalance> is updated at the moment of the previous era, 
         /// and if the <updates()> function is not called in the next era, then the balance staked in the current era 
         /// will not participate in the <accumulatedRewardsPerShare> calculation.
         /// Therefore, to avoid such situations, the balance for subsequent eras is written to <eraBuffer>.
@@ -772,7 +771,7 @@ contract LiquidStaking is AccessControl {
             }
         }
 
-        require(transferAmount > 0, "Nothing to cliam");
+        require(transferAmount > 0, "Nothing to claim");
         payable(msg.sender).sendValue(transferAmount);
 
         emit Claimed(msg.sender, transferAmount);
@@ -875,7 +874,7 @@ contract LiquidStaking is AccessControl {
     
     /// @notice return users rewards
     /// @param _user => user address
-    function getUserRewards(address _user) public view returns (uint) {
+    function getUserRewards(address _user) external view returns (uint) {
         return totalUserRewards[_user];
     }
 
@@ -966,7 +965,7 @@ contract LiquidStaking is AccessControl {
     // ///      for each user to calculate his rewards for the past era
     // /// @dev before starting the migration, you need to make a claim of 
     // ///      rewards for all past eras and call the sync function for all non-updated eras
-    // function migrateStorage(address _user) public onlyRole(MANAGER) {
+    // function migrateStorage(address _user) external onlyRole(MANAGER) {
     //     if (_user == address(0)) return;
 
     //     uint256 _era = currentEra();
