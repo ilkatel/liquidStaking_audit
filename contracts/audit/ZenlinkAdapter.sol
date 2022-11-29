@@ -348,7 +348,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         view
         returns (uint256[] memory)
     {
-        (uint256 reservesASTR, uint256 reservesNASTR) = _getSortedReserves();
+        (uint256 reservesASTR, uint256 reservesNASTR) = _getSortedReserves(pair);
         uint256 totalLpSupply = lp.totalSupply();
         uint256 nastrAmount = (_amount * reservesNASTR) / totalLpSupply;
         uint256 astrAmount = (_amount * reservesASTR) / totalLpSupply;
@@ -387,7 +387,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Get share of n tokens in pool for user
     // @param _user User's address
     function calc(address _user) external view returns (uint256 nShare) {
-        (, uint256 nTokensReserves) = _getSortedReserves();
+        (, uint256 nTokensReserves) = _getSortedReserves(pair);
         nShare =
             ((lpBalances[_user] + depositedLp[_user]) * nTokensReserves) /
             lp.totalSupply();
@@ -408,7 +408,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         view
         returns (uint256 sum)
     {   
-        (uint256 astr, uint256 nastr) = _getSortedReserves();
+        (uint256 astr, uint256 nastr) = _getSortedReserves(pair);
         sum = _isAstr
             ? _amount * nastr / astr
             : _amount * astr / nastr;
@@ -424,14 +424,18 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice To get total amount of locked tokens in pool for front-end
     // @return Total amount of tokens in pool
     function totalReserves() external view returns (uint256 sum) {
-        (uint256 astr, uint256 nastr) = _getSortedReserves();
+        (uint256 astr, uint256 nastr) = _getSortedReserves(pair);
         sum = nastr + astr;
     }
 
-    function _getSortedReserves() private view returns (uint256 astr, uint256 nastr) {
-        address token1 = pair.token1();
-        (uint256 res0, uint256 res1) = _getSortedReserves();
-        return token1 == address(nToken) ? (res0, res1) : (res1, res0);
+    // @notice To get sorted reserves. WASTR will always at first idx.
+    // @param Pair address
+    // @return Amount of tokens
+    function _getSortedReserves(IZenlinkPair _pair) private view returns (uint256 astr, uint256 nastr) {
+        address wastr = 0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720;
+        address token0 = _pair.token0();
+        (uint256 res0, uint256 res1, ) = _pair.getReserves();
+        return token0 == wastr ? (res0, res1) : (res1, res0);
     }
 
     // @notice Used for getting apr and tvl info
@@ -449,15 +453,12 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         (,,,uint256[] memory rewardsPerBlock,,,,) = farm.getPoolInfo(0);
         uint256 zlkPerBlock = rewardsPerBlock[0];
 
-        // get zlk price
-        address token0 = zlkAstrPair.token0();
-        (uint256 res0, uint256 res1,) = zlkAstrPair.getReserves();
-        (uint256 astrRsrws, uint256 zlkRsrws) = token0 == address(zlkToken) ? (res1, res0) : (res0, res1);
-        
+        // get zlk price`
+        (uint256 astrRsrws, uint256 zlkRsrws) = _getSortedReserves(zlkAstrPair);
         uint256 zlkPrice = astrPrice * astrRsrws * PRICE_PRECISION / zlkRsrws;
 
         // get tvl
-        (uint256 astrReserves, ) = _getSortedReserves();
+        (uint256 astrReserves, ) = _getSortedReserves(pair);
         tvl = astrReserves * 2 * astrPrice / 1e18;
 
         apr = (zlkPerBlock * (365 * 24 * 3600 / 12) * zlkPrice / 1e18 / PRICE_PRECISION + tvl) * 1e18 / tvl;
@@ -467,7 +468,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @param _amounts Amounts of tokens. ASTR amount at idx 0
     // @return LP amount
     function getLpAmount(uint256[] memory _amounts) external view returns (uint256 amount) {
-        (uint256 astrRsrvs, uint256 nastrRsrvs) = _getSortedReserves();
+        (uint256 astrRsrvs, uint256 nastrRsrvs) = _getSortedReserves(pair);
         uint256 totalSupply = lp.totalSupply();
         uint256 shareNastr = _amounts[1] * totalSupply / nastrRsrvs;
         uint256 shareAstr = _amounts[0] * totalSupply / astrRsrvs;
