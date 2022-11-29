@@ -197,6 +197,7 @@ contract NDistributor is AccessControl {
         _revokeRole(DEFAULT_ADMIN_ROLE, owner);
         _grantRole(DEFAULT_ADMIN_ROLE, _grantedOwner);
         owner = _grantedOwner;
+        _grantedOwner = address(0);
         emit OwnershipTransferred(owner, _grantedOwner);
     }
 
@@ -818,12 +819,6 @@ contract NDistributor is AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(_liquidStaking.isContract(), "_liquidStaking should be contract");
-
-        //revoke previous contract manager role if was set
-        if(address(liquidStaking) != address(0)) {
-            _revokeRole(MANAGER, address(liquidStaking));
-        }
-
         //require(address(liquidStaking) == address(0), "Already set");  // TODO: back
         liquidStaking = ILiquidStaking(_liquidStaking);
         _grantRole(MANAGER, _liquidStaking);
