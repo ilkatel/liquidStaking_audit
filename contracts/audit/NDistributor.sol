@@ -389,18 +389,6 @@ contract NDistributor is AccessControl {
         return users[_user].dnt[_dnt].dntInUtil[_util];
     }
 
-    /// @notice returns which utilities are used with specific DNT token
-    /// @param _user => user address
-    /// @param _dnt => DNT token name
-    /// @return utilsList => all user utils are used with specific DNT token
-    function getUserUtilsInDnt(address _user, string memory _dnt)
-        public
-        view
-        returns (string[] memory)
-    {
-        return users[_user].dnt[_dnt].userUtils;
-    }
-
     /// @notice returns user's DNT balance
     /// @param _user => user address
     /// @param _dnt => DNT token name
