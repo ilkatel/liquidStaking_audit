@@ -519,7 +519,7 @@ contract NFTDistributor is AccessControl {
     /// @notice function for redistribution of balances and fees for the user when adding DNT tokens to user.
     /// @param utility => utility name.
     /// @param to => address of the recipient.
-    /// @param amount => amount of removing DNT tokens;
+    /// @param amount => amount of adding DNT tokens;
     /// @return userHasUtility => returns true if the user has the given utility.
     function _addDntToUser(string memory utility, address to, uint256 amount) private returns (bool) {
         UserInfo storage user = users[to];
