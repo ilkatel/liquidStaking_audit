@@ -350,7 +350,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         returns (uint256[] memory)
     {
         (uint256 reservesNASTR, uint256 reservesASTR,) = pair.getReserves();
-        uint256 totalLpSupply = lp.totalSupply();
+        uint256 totalLpSupply = pair.totalSupply();
         uint256 nastrAmount = (_amount * reservesNASTR) / totalLpSupply;
         uint256 astrAmount = (_amount * reservesASTR) / totalLpSupply;
         uint256[] memory amounts = new uint256[](2);
