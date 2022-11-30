@@ -213,7 +213,8 @@ contract NFTDistributor is AccessControl {
     /// @param to => address of the recipient. equals <address(0)> at burn.
     /// @param amounts => array of amounts sended DNT tokens.
     function multiTransferDnt(string[] memory utilities, address from, address to, uint256[] memory amounts) external globalUpdate {
-        require(msg.sender == address(nAstr) || msg.sender == adaptersDistributor, "Not access");
+        //require(msg.sender == address(nAstr) || msg.sender == adaptersDistributor, "Not access");
+        require(msg.sender == address(nAstr), "Not access");
 
         uint256 l = utilities.length;
         for (uint256 i; i < l; i++) {
