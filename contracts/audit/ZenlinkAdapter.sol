@@ -120,6 +120,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "Not enough ZLK revenue"
         );
         require(_amount > 0, "Should be greater than zero");
+        require(revenuePool >= _amount, "Insufficient funds in the revenue pool");
         revenuePool -= _amount;
         zlkToken.safeTransfer(msg.sender, _amount);
     }
@@ -220,7 +221,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         payable(msg.sender).sendValue(amountASTR); 
 
-        emit RemoveLiquidity(msg.sender, amountToken, amountASTR);
+        emit RemoveLiquidity(msg.sender, _amount, amountASTR);
     }
 
     // @notice With this function users can transfer
@@ -239,9 +240,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         lp.safeTransferFrom(msg.sender, address(this), _amount);
         lpBalances[msg.sender] += _amount;
 
-        if (_autoDeposit) {
-            depositLP(_amount);
-        }
+        depositLP(_amount);
     }
 
     // @notice Deposit LP tokens to ZLK allocation
@@ -321,17 +320,17 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     // @notice Receives portion of total rewards in ZLK tokens from the farm contract
     function updatePoolRewards() private {
+        if (totalStakedLp == 0) return;
         uint256 beforeZlk = zlkToken.balanceOf(address(this));
         try farm.claim(pid) {}
         catch {
             emit NotClaimable();
         }
         uint256 afterZlk = zlkToken.balanceOf(address(this));
+
         uint256 receivedRewards = afterZlk > beforeZlk
             ? afterZlk - beforeZlk
             : 0;
-
-        if (totalStakedLp == 0) return;
 
         // increases accumulated rewards per 1 staked token
         accumulatedRewardsPerShare +=
@@ -349,8 +348,9 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         view
         returns (uint256[] memory)
     {
-        (uint256 reservesNASTR, uint256 reservesASTR,) = pair.getReserves();
+        (uint256 reservesASTR, uint256 reservesNASTR) = _getSortedReserves();
         uint256 totalLpSupply = pair.totalSupply();
+
         uint256 nastrAmount = (_amount * reservesNASTR) / totalLpSupply;
         uint256 astrAmount = (_amount * reservesASTR) / totalLpSupply;
         uint256[] memory amounts = new uint256[](2);
@@ -372,7 +372,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Needs to check user rewards
     // @param _user User address
     // @return sum Amount of penging rewards
-    function pendingRewards(address _user) public view returns (uint256 sum) {
+    function pendingRewards(address _user) external view returns (uint256 sum) {
         uint256 stakedAmount = depositedLp[_user];
         if (stakedAmount > 0) {
             sum =
@@ -388,7 +388,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Get share of n tokens in pool for user
     // @param _user User's address
     function calc(address _user) external view returns (uint256 nShare) {
-        (, uint256 nTokensReserves,) = pair.getReserves();
+        (, uint256 nTokensReserves) = _getSortedReserves();
         nShare =
             ((lpBalances[_user] + depositedLp[_user]) * nTokensReserves) /
             lp.totalSupply();
@@ -409,24 +409,30 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         view
         returns (uint256 sum)
     {   
-        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        (uint256 astr, uint256 nastr) = _getSortedReserves();
         sum = _isAstr
-            ? _amount * reserve0 / reserve1
-            : _amount * reserve1 / reserve0;
+            ? _amount * nastr / astr
+            : _amount * astr / nastr;
     }
 
     // @notice Technical function, that shadows depositedLp functionality
     //         Needed to using the same abi for all adapters
     // @return Amount of depoposited LP by user
-    function gaugeBalances(address _user) public view returns (uint256) {
+    function gaugeBalances(address _user) external view returns (uint256) {
         return depositedLp[_user];
     }
 
     // @notice To get total amount of locked tokens in pool for front-end
     // @return Total amount of tokens in pool
-    function totalReserves() public view returns (uint256 sum) {
-        (uint256 astr, uint256 nastr,) = pair.getReserves();
+    function totalReserves() external view returns (uint256 sum) {
+        (uint256 astr, uint256 nastr) = _getSortedReserves();
         sum = nastr + astr;
+    }
+
+    function _getSortedReserves() private view returns (uint256 astr, uint256 nastr) {
+        address token1 = pair.token1();
+        (uint256 res0, uint256 res1) = _getSortedReserves();
+        return token1 == address(nToken) ? (res0, res1) : (res1, res0);
     }
 
     // @notice Used for getting apr and tvl info
@@ -435,23 +441,24 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @return apr Annual Percentage Rate
     function getInfo(
         uint256 astrPrice
-    ) public view returns (uint256 tvl, uint256 apr) {
+    ) external view returns (uint256 tvl, uint256 apr) {
         require(astrPrice > 0, "Zero address alarm");
-        IZenlinkFarm chef = IZenlinkFarm(0x460ee9DBc82B2Be84ADE50629dDB09f6A1746545);
         IZenlinkPair zlkAstrPair = IZenlinkPair(0xba75fD35762e1dA55bc1893B3c0845BEee833d52);
-        IZenlinkPair usdcAstrPair = IZenlinkPair(0x77fE816550d8FdD0Fcb0cdeA66541F3d76918681);
         uint256 PRICE_PRECISION = 10000;
 
         // get rewards per block for current pool
-        (,,,uint256[] memory rewardsPerBlock,,,,) = chef.getPoolInfo(0);
+        (,,,uint256[] memory rewardsPerBlock,,,,) = farm.getPoolInfo(0);
         uint256 zlkPerBlock = rewardsPerBlock[0];
 
         // get zlk price
-        (uint256 zlkRsrws, uint256 astrRsrws,) = zlkAstrPair.getReserves();
+        address token0 = zlkAstrPair.token0();
+        (uint256 res0, uint256 res1,) = zlkAstrPair.getReserves();
+        (uint256 astrRsrws, uint256 zlkRsrws) = token0 == address(zlkToken) ? (res1, res0) : (res0, res1);
+        
         uint256 zlkPrice = astrPrice * astrRsrws * PRICE_PRECISION / zlkRsrws;
 
         // get tvl
-        (, uint256 astrReserves,) = usdcAstrPair.getReserves();
+        (uint256 astrReserves, ) = _getSortedReserves();
         tvl = astrReserves * 2 * astrPrice / 1e18;
 
         apr = (zlkPerBlock * (365 * 24 * 3600 / 12) * zlkPrice / 1e18 / PRICE_PRECISION + tvl) * 1e18 / tvl;
@@ -460,8 +467,8 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Used to calculate LP amount by giving nASTR and ASTR
     // @param _amounts Amounts of tokens. ASTR amount at idx 0
     // @return LP amount
-    function getLpAmount(uint256[] memory _amounts) public view returns (uint256 amount) {
-        (uint256 nastrRsrvs, uint256 astrRsrvs,) = pair.getReserves();
+    function getLpAmount(uint256[] memory _amounts) external view returns (uint256 amount) {
+        (uint256 astrRsrvs, uint256 nastrRsrvs) = _getSortedReserves();
         uint256 totalSupply = lp.totalSupply();
         uint256 shareNastr = _amounts[1] * totalSupply / nastrRsrvs;
         uint256 shareAstr = _amounts[0] * totalSupply / astrRsrvs;
