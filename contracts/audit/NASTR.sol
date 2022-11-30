@@ -106,7 +106,7 @@ contract NASTR is
         _revokeRole(role, account);
     }
 
-    uint256 counter;
+    /* unused */ uint256 counter;
 
     // @param       checks if token is active
     // @param       [address] from => address to transfer tokens from
@@ -122,7 +122,6 @@ contract NASTR is
         if (isNote) {
             distributor.transferDnt(from, to, amount, utilityToTransfer, "nASTR");
             nftDistr.transferDnt(utilityToTransfer, from, to, amount);
-            counter++;
         } else if (!isMultiTransfer) {
             (string[] memory utilities, uint256[] memory amounts) = distributor.transferDnts(from, to, amount, "nASTR");
             nftDistr.multiTransferDnt(utilities, from, to, amounts);
