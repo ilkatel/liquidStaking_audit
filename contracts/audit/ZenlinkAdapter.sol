@@ -37,6 +37,8 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => uint256) public depositedLp;
     mapping(address => uint256) public rewardDebt;
 
+    address public constant WASTR = 0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720;
+
     //Events
     event AddLiquidity(
         address indexed user,
@@ -432,10 +434,9 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @param Pair address
     // @return Amount of tokens
     function _getSortedReserves(IZenlinkPair _pair) private view returns (uint256 astr, uint256 nastr) {
-        address wastr = 0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720;
         address token0 = _pair.token0();
         (uint256 res0, uint256 res1, ) = _pair.getReserves();
-        return token0 == wastr ? (res0, res1) : (res1, res0);
+        return token0 == WASTR ? (res0, res1) : (res1, res0);
     }
 
     // @notice Used for getting apr and tvl info
