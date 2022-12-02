@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.4;
 
 interface INFTDistributor {
     function getUserEraBalance(string memory utility, address _user, uint256 era) external view returns (uint256, bool);
