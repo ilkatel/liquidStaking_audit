@@ -58,7 +58,7 @@ contract LiquidStaking is AccessControl {
     uint public lastUpdated; // last era updated everything
 
     // Reward handlers
-    address[] internal stakers;
+    /* unused and will removed with next proxy update */ address[] public stakers;
     /* unused and will removed with next proxy update */address public dntToken;
     mapping(address => bool) public isStaker;
 
@@ -264,7 +264,6 @@ contract LiquidStaking is AccessControl {
 
         if (!isStaker[msg.sender]) {
             isStaker[msg.sender] = true;
-            stakers.push(msg.sender);
         }
 
         totalBalance += _stakeAmount;
@@ -678,7 +677,6 @@ contract LiquidStaking is AccessControl {
     /// @param  _utility => user utility
     function addStaker(address _addr, string memory _utility) external onlyDistributor {
         if (!isStaker[msg.sender]) {
-            stakers.push(_addr);
             isStaker[_addr] = true;
         }
         if (dapps[_utility].stakers[msg.sender].lastClaimedEra == 0)
@@ -857,11 +855,6 @@ contract LiquidStaking is AccessControl {
     function currentEra() public view returns (uint) {
         return DAPPS_STAKING.read_current_era();
     }
-
-    /// @notice return stakers array
-    function getStakers() external view returns (address[] memory) {
-        return stakers;
-    }   
 
     /// @notice preview all eser rewards from utility at current era
     /// @param _utility => utility

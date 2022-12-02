@@ -41,8 +41,12 @@ contract AdaptersDistributor is AccessControl {
         require(!haveAdapter[_utility], "Already have adapter");
 
         haveAdapter[_utility] = true;
+
+        /* currently unused, commented to save gas
         adapterId[_utility] = adaptersList.length;
         adaptersList.push(_utility);
+        */
+
         adapters[_utility].contractAddress = _contractAddress;
 
         _grantRole(ADAPTER, _contractAddress);
@@ -54,10 +58,13 @@ contract AdaptersDistributor is AccessControl {
         address adapterAddress = adapters[_utility].contractAddress;
 
         haveAdapter[_utility] = false;
+
+        /* currently unused, commented to save gas
         uint256 _adapterId = adapterId[_utility];
         adaptersList[_adapterId] = adaptersList[adaptersList.length - 1];
         adapterId[adaptersList[_adapterId]] = _adapterId;
         adaptersList.pop();
+        */
 
         _revokeRole(ADAPTER, adapterAddress);
     }

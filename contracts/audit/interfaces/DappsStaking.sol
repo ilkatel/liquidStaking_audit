@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-pragma solidity >=0.7.0;
+pragma solidity 0.8.4;
 
 /// Interface to the precompiled contract on Shibuya/Shiden/Astar
 /// Predeployed at the address 0x0000000000000000000000000000000000005001
