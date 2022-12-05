@@ -73,7 +73,7 @@ contract LiquidStaking is AccessControl {
 
     uint public totalRevenue;
 
-    /* unused and will removed with next proxy update */mapping(address => mapping(uint => uint)) public buffer;
+    /* remove after migration */mapping(address => mapping(uint => uint)) public buffer;
     mapping(address => mapping(uint => uint[])) public usersShotsPerEra;  /* 1 -> 1.5 will removed with next proxy update */
     mapping(address => uint) internal totalUserRewards;
     /* unused and will removed with next proxy update */mapping(address => address) public lpHandlers;
@@ -81,7 +81,7 @@ contract LiquidStaking is AccessControl {
     uint public eraShotsLimit;  /* 1 -> 1.5 will removed with next proxy update */
     /* unused and will removed with next proxy update */uint public lastClaimed;
     uint public minStakeAmount;
-    /* unused and will removed with next proxy update */uint public sum2unstake;
+    /* remove after migration */ uint public sum2unstake;
     /* unused and will removed with next proxy update */bool public isUnstakes;
     /* unused and will removed with next proxy update */uint public claimingTxLimit;  // = 5;
 
