@@ -229,6 +229,7 @@ contract NFTDistributor is AccessControl {
     /// @param amount => amount of sended DNT tokens.
     function transferDnt(string memory utility, address from, address to, uint256 amount) external globalUpdate {
         require(msg.sender == address(nAstr) || msg.sender == adaptersDistributor, "Not access");
+        require(amount > 0, "Incorrect amount");
 
         _transferDnt(utility, from, to, amount);
     }
@@ -494,7 +495,7 @@ contract NFTDistributor is AccessControl {
     /// @param to => address of the recipient. equals <address(0)> at burn.
     /// @param amount => amount of sended DNT tokens.
     function _transferDnt(string memory utility, address from, address to, uint256 amount) private {
-        require(amount > 0, "Incorrect amount");
+        if (amount == 0) return;
         if (from == to) return;
 
         Utility storage util_ = utils[utility];
