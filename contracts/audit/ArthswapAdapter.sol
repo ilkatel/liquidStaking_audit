@@ -336,7 +336,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         view
         returns (uint256[] memory)
     {
-        (uint256 reservesASTR, uint256 reservesNASTR,) = pair.getReserves();
+        (uint256 reservesASTR, uint256 reservesNASTR) = _getSortedReserves();
         uint256 totalLpSupply = pair.totalSupply();
         uint256 nastrAmount = (_amount * reservesNASTR) / totalLpSupply;
         uint256 astrAmount = (_amount * reservesASTR) / totalLpSupply;
@@ -375,10 +375,10 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice Get share of n tokens in pool for user
     // @param _user User's address
     function calc(address _user) external view returns (uint256 nShare) {
-        (, uint256 nTokensReserves,) = pair.getReserves();
+        (, uint256 nTokensReserves) = _getSortedReserves();
         nShare =
             ((lpBalances[_user] + depositedLp[_user]) * nTokensReserves) /
-            lp.totalSupply();
+            pair.totalSupply();
     }
 
     // @notice Disabled functionality to renounce ownership
@@ -396,7 +396,7 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         view
         returns (uint256 sum)
     {   
-        (uint256 reserve0, uint256 reserve1,) = pair.getReserves();
+        (uint256 reserve0, uint256 reserve1) = _getSortedReserves();
         sum = _isAstr
             ? pool.quote(_amount, reserve0, reserve1)
             : pool.quote(_amount, reserve1, reserve0);
@@ -412,7 +412,16 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @notice To get total amount of locked tokens in pool for front-end
     // @return Total amount of tokens in pool
     function totalReserves() public view returns (uint256 sum) {
-        (uint256 astr, uint256 nastr,) = pair.getReserves();
+        (uint256 astr, uint256 nastr) = _getSortedReserves();
         sum = nastr + astr;
+    }
+
+    // @notice To get sorted reserves. WASTR will always at first idx.
+    // @param Pair address
+    // @return Amount of tokens
+    function _getSortedReserves() private view returns (uint256 astr, uint256 nastr) {
+        address token0 = pair.token0();
+        (uint256 res0, uint256 res1, ) = pair.getReserves();
+        return token0 == WASTR ? (res0, res1) : (res1, res0);
     }
 }
