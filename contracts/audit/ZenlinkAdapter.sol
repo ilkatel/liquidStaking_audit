@@ -206,7 +206,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             ((astrPredicted * SLIPPAGE_CONTROL) / SLIPPAGE_PRECISION);
 
         // allow the pool take the _amount of lp
-        lp.approve(address(pool), _amount);
+        pair.approve(address(pool), _amount);
 
         (uint amountToken, uint amountASTR) = pool.removeLiquidityNativeCurrency(
             address(nToken),
@@ -351,7 +351,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         returns (uint256[] memory)
     {
         (uint256 reservesASTR, uint256 reservesNASTR) = _getSortedReserves(pair);
-        uint256 totalLpSupply = lp.totalSupply();
+        uint256 totalLpSupply = pair.totalSupply();
         uint256 nastrAmount = (_amount * reservesNASTR) / totalLpSupply;
         uint256 astrAmount = (_amount * reservesASTR) / totalLpSupply;
         uint256[] memory amounts = new uint256[](2);
@@ -392,7 +392,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         (, uint256 nTokensReserves) = _getSortedReserves(pair);
         nShare =
             ((lpBalances[_user] + depositedLp[_user]) * nTokensReserves) /
-            lp.totalSupply();
+            pair.totalSupply();
     }
 
     // @notice Disabled functionality to renounce ownership
@@ -470,7 +470,7 @@ contract ZenlinkAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // @return LP amount
     function getLpAmount(uint256[] memory _amounts) external view returns (uint256 amount) {
         (uint256 astrRsrvs, uint256 nastrRsrvs) = _getSortedReserves(pair);
-        uint256 totalSupply = lp.totalSupply();
+        uint256 totalSupply = pair.totalSupply();
         uint256 shareNastr = _amounts[1] * totalSupply / nastrRsrvs;
         uint256 shareAstr = _amounts[0] * totalSupply / astrRsrvs;
         return shareNastr < shareAstr ? shareNastr : shareAstr;
