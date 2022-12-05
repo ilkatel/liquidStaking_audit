@@ -267,7 +267,9 @@ contract LiquidStaking is AccessControl {
         }
 
         totalBalance += _stakeAmount;
-        totalRevenue += value - _stakeAmount;
+
+        //return the difference to user
+        payable(msg.sender).sendValue(value - _stakeAmount);
 
         for (uint256 i; i < l; i++) {
             if (dapps[_utilities[i]].stakers[msg.sender].lastClaimedEra == 0)
