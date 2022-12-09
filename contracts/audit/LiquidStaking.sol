@@ -940,7 +940,7 @@ contract LiquidStaking is AccessControl {
     //             }   
                 
     //             if (dapps["AdaptersUtility"].stakers[_user].lastClaimedEra == 0) {
-    //                 dapps["AdaptersUtility"].stakers[_user].lastClaimedEra = era;
+    //                 dapps["AdaptersUtility"].stakers[_user].lastClaimedEra = era + 1;
     //             }
     //         }
     //     }
@@ -968,7 +968,7 @@ contract LiquidStaking is AccessControl {
     //     dapps[utilName].stakers[_user].eraBalance[_era] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era];
     //     dapps[utilName].stakers[_user].isZeroBalance[_era] = dapps[utilName].stakers[_user].eraBalance[_era] == 0 ? true : false;
     //     dapps[utilName].stakers[_user].eraBalance[_era + 1] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era + 1];
-    //     dapps[utilName].stakers[_user].isZeroBalance[_era + 1] = dapps[utilName].stakers[_user].eraBalance[_era = 1] == 0 ? true : false;
+    //     dapps[utilName].stakers[_user].isZeroBalance[_era + 1] = dapps[utilName].stakers[_user].eraBalance[_era + 1] == 0 ? true : false;
     //     dapps[utilName].stakers[_user].lastClaimedEra = _era;
     // }
 
