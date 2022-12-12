@@ -791,7 +791,8 @@ contract LiquidStaking is AccessControl {
             nftDistr.updateUserFee(_user, newEraComission, lastUpdated - 1);
         } 
 
-        dapps[_utility].stakers[_user].lastClaimedEra = lastUpdated;
+        if (dapps[_utility].stakers[_user].lastClaimedEra != 0)
+            dapps[_utility].stakers[_user].lastClaimedEra = lastUpdated;
 
         if (userData[1] == 0) return;
 

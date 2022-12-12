@@ -300,6 +300,8 @@ contract NDistributor is AccessControl {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        revert("Disabled yet");
+        /*
         require(_dntAddress.isContract(), "_dntaddress should be contract");
         require(dntContracts[_newDnt] != _dntAddress, "Dnt already added");
         uint lastId = dntDB.length;
@@ -310,6 +312,7 @@ contract NDistributor is AccessControl {
         dntContracts[_newDnt] = _dntAddress;
 
         emit AddDnt(_newDnt, _dntAddress);
+        */
     }
 
     /// @notice allows to change DNT asset contract address
