@@ -19,6 +19,7 @@ contract Algem721 is ERC721PresetMinterPauserAutoIdUpgradeable {
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }  
 
     function initialize(
