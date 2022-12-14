@@ -36,6 +36,8 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => uint256) public rewards;
     mapping(address => uint256) public depositedLp;
     mapping(address => uint256) public rewardDebt;
+    
+    address public constant WASTR = 0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720;
 
     //Events
     event AddLiquidity(
