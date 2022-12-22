@@ -36,6 +36,14 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => uint256) public rewards;
     mapping(address => uint256) public depositedLp;
     mapping(address => uint256) public rewardDebt;
+    
+    address public constant WASTR = 0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720;
+
+    // ----------------------------
+
+    mapping(address => mapping(string => uint256)) public records;
+    mapping(address => string[]) public recordedUtils;
+    mapping(address => mapping(string => uint256)) public utilIdx;
 
     //Events
     event AddLiquidity(
@@ -96,6 +104,8 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         pair = _pair;
         arswToken = _arswToken;
         pid = _pid;
+
+        // nToken.setDisabledAutoDefine(true);
     }
 
     // @notice To receive funds from pool contrct
@@ -138,7 +148,11 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "The length of amounts must be equal to two"
         );
 
+        (string[] memory utils, uint256[] memory amounts) = _shouldBeTransfered(msg.sender, _amounts[1]);
         nToken.safeTransferFrom(msg.sender, address(this), _amounts[1]);
+
+        incrementRecords(msg.sender, utils, amounts);
+        nDistr.addToReservedPool(utils, amounts, "nASTR");
 
         // vars for slippage control
         uint256 amountTokenMin = _amounts[1] -
@@ -209,6 +223,21 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         lpBalances[msg.sender] -= _amount;
 
         nToken.safeTransfer(msg.sender, amountToken);
+        (string[] memory utilities, string[] memory amounts) = getRecordedAmounts(msg.sender);
+        if (utilities.length > 0) {
+            (, uint256 definedAmount, utilities, amounts) = nDistr.defineSpecificUtilitiesFromReservedPool(
+                msg.sender,
+                msg.sender,
+                utilities, 
+                amounts,
+                "nASTR"
+            );
+
+            decrementRecords(msg.sender, utilities, amounts);
+            amountToken -= definedAmount;
+        }
+
+        if (amountToken > 0) nDistr.defineUtilitiesFromUndefinedPool(msg.sender, msg.sender, amountToken, "nASTR");
 
         payable(msg.sender).sendValue(amountASTR);
 
@@ -423,5 +452,68 @@ contract ArthswapAdapter is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address token0 = pair.token0();
         (uint256 res0, uint256 res1, ) = pair.getReserves();
         return token0 == WASTR ? (res0, res1) : (res1, res0);
+    }
+
+
+    // ---------------------------
+
+
+    function _shouldBeTransfered(address from, uint256 amount) private returns (
+        string[] memory utils, 
+        uint256[] memory amounts
+    ) {
+        string[] memory _utils = nDistr.listUserUtilitiesInDnt(from, "nASTR");
+        uint256 l = _utils.length;
+
+        for(uint256 i; i < l; i++) {
+            uint256 utilBal = nDistr.getUserDntBalanceInUtil(from, "nASTR");
+            uint256 toTransfer = amount > utilBal ? utilBal : amount;
+            utils.push(utils[i]);
+            amounts.push(toTransfer);
+
+            if (toTransfer == amount) return;
+            amount -= toTransfer;
+        }
+
+        revert("Have no tokens");
+    }
+
+    function incrementRecords(address user, string[] memory utils, uint256[] memory amounts) private {
+        uint256 l = utils.length;
+        for (uint256 i; i < l; i++) {
+            if (records[user][utils[i]] == 0) addUtilToRecords(user, utils[i]);
+            records[user][utils[i]] += amounts[i];
+        }
+    }
+
+    function decrementRecords(address user, string[] memory utils, uint256[] memory amounts) private {
+        uint256 l = utils.length;
+        for (uint256 i; i < l; i++) {
+            records[user][utils[i]] -= amounts[i];
+            if (records[user][utils[i]] == 0) removeUtilFromRecords(user, utils[i]);
+        }
+    }
+
+    function addUtilToRecords(address user, string memory utility) private {
+        uint256 lastIdx = recordedUtils[user].length;
+
+        recordedUtils[user].push(utility);
+        utilIdx[user][utility] = lastIdx;
+    }
+
+    function removeUtilFromRecords(address user, string memory utility) private {
+        uint256 lastIdx = recordedUtils[user].length - 1;
+        uint256 lastUtil = recordedUtils[user][lastIdx];
+
+        recordedUtils[user][utilIdx[user][utility]] = recordedUtils[user][lastUtil];
+        utilIdx[user][lastUtil] = utilIdx[user][utility];
+        recordedUtils[user].pop();
+    }
+
+    function getRecordedAmounts(address user) private view returns (string[] memory utils, uint256[] memory amounts) {
+        utils = recordedUtils[user];
+        uint256 l = utils.length;
+        for (uint256 i; i < l; i++)
+            amounts.push(records[user][utils[i]]);
     }
 }

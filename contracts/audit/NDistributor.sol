@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./interfaces/IDNT.sol";
 import "./interfaces/ILiquidStaking.sol";
+import "./interfaces/IDNTMultitransfer.sol";
 
 /*
  * @notice ERC20 DNT token distributor contract
@@ -121,6 +122,13 @@ contract NDistributor is AccessControl {
     // @notice needed to implement grant/claim ownership pattern
     address private _grantedOwner;
 
+    mapping(address => mapping(string => uint256)) public userUtilitiesInDntIdx;
+
+    string private constant UNDEFINED = "und_";  // undefined
+    string private constant RESERVED = "res_";  // reserved
+
+    
+    
     event Transfer(
         address indexed _from,
         address indexed _to,
@@ -169,6 +177,27 @@ contract NDistributor is AccessControl {
         isUtility["null"] = true;
 
         totalDnt["nASTR"] = totalDntInUtil["LiquidStaking"];
+
+        uint lastId = utilityDB.length;
+        string memory _newUtility = UNDEFINED;
+        utilityId[_newUtility] = lastId;
+        utilityDB.push(Utility(_newUtility, true));
+        utilities.push(_newUtility);
+        isUtility[_newUtility] = true;
+
+        lastId = dntDB.length;
+        string memory _newDnt = "unASTR";
+        dntId[_newDnt] = lastId;
+        dntDB.push(Dnt(_newDnt, true));
+        dnts.push(_newDnt);
+        dntContracts[_newDnt] = address(this);
+
+        lastId = dntDB.length;
+        _newDnt = "rnASTR";
+        dntId[_newDnt] = lastId;
+        dntDB.push(Dnt(_newDnt, true));
+        dnts.push(_newDnt);
+        dntContracts[_newDnt] = address(this);
     }
 
     // -------------------------------------------------------------------------------------------------------
@@ -300,6 +329,8 @@ contract NDistributor is AccessControl {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        revert("Disabled yet");
+        /*
         require(_dntAddress.isContract(), "_dntaddress should be contract");
         require(dntContracts[_newDnt] != _dntAddress, "Dnt already added");
         uint lastId = dntDB.length;
@@ -310,6 +341,7 @@ contract NDistributor is AccessControl {
         dntContracts[_newDnt] = _dntAddress;
 
         emit AddDnt(_newDnt, _dntAddress);
+        */
     }
 
     /// @notice allows to change DNT asset contract address
@@ -354,9 +386,11 @@ contract NDistributor is AccessControl {
     /// @return userDnts => all user dnts
     function listUserDnts(address _user) external view returns (string[] memory) {
         require(_user != address(0), "Shouldn't be zero address");
-
-
         return users[_user].userDnts;
+    }
+
+    function getTotalDnt(string memory _dnt) external view returns (uint256) {
+        return totalDnt[_dnt] - totalDntInUtil[UNDEFINED]; 
     }
 
     /// @notice returns user utilities by DNT
@@ -445,7 +479,8 @@ contract NDistributor is AccessControl {
         string memory _utility
     ) internal {
         if (userHasUtility[_account][_utility]) _removeUtilityFromUser(_utility, _dnt, _account);
-        if (userHasDnt[_account][_dnt] && users[_account].dnt[_dnt].userUtils.length == 0) _removeDntFromUser(_dnt, users[_account].userDnts, _account);
+        if (userHasDnt[_account][_dnt] && users[_account].dnt[_dnt].userUtils.length == 0) 
+            _removeDntFromUser(_dnt, users[_account].userDnts, _account);
     }
 
     /// @notice issues new tokens
@@ -485,18 +520,9 @@ contract NDistributor is AccessControl {
         uint256 _amount,
         string memory _utility,
         string memory _dnt
-    ) private dntInterface(_dnt) {
-        require(_amount > 0, "Amount should be greater than zero");
-        require(_to != address(0), "Zero address alarm!");
-        require(
-            utilityDB[utilityId[_utility]].isActive == true,
-            "Invalid utility!"
-        );
-
+    ) private {
         _addToUser(_to, _dnt, _utility);
-        
         users[_to].dnt[_dnt].dntInUtil[_utility] += _amount;
-        liquidStaking.updateUserBalanceInUtility(_utility, _to);
     }
 
 
@@ -530,6 +556,7 @@ contract NDistributor is AccessControl {
         users[_user].userUtilities.push(_utility);
         users[_user].dnt[_dnt].userUtils.push(_utility);
         userUtitliesIdx[_user][_utility] = users[_user].userUtilities.length - 1;
+        userUtilitiesInDntIdx[_user][_utility] = users[_user].dnt[_dnt].userUtils.length - 1;
     }
 
     /// @notice removes tokens from circulation
@@ -570,25 +597,12 @@ contract NDistributor is AccessControl {
         uint256 _amount,
         string memory _utility,
         string memory _dnt
-    ) private dntInterface(_dnt) {
-        require(_amount > 0, "Amount should be greater than zero");
-        require(
-            utilityDB[utilityId[_utility]].isActive == true,
-            "Invalid utility!"
-        );
-
-        require(
-            users[_account].dnt[_dnt].dntInUtil[_utility] >= _amount,
-            "Not enough DNT in utility!"
-        );
-
+    ) private {
         users[_account].dnt[_dnt].dntInUtil[_utility] -= _amount;
-        liquidStaking.updateUserBalanceInUtility(_utility, _account);
 
         // if user balance in util is zero, we need to update info about util and dnt
-        if (users[_account].dnt[_dnt].dntInUtil[_utility] == 0) {
+        if (users[_account].dnt[_dnt].dntInUtil[_utility] == 0)
             _removeFromUser(_account, _dnt, _utility);
-        }
 
     }
 
@@ -600,15 +614,21 @@ contract NDistributor is AccessControl {
         string memory _dnt,
         address _user
     ) internal onlyRole(MANAGER) {
-        uint lastIdx = users[_user].userUtilities.length - 1;
-        uint idx = userUtitliesIdx[_user][_utility];
-
         userHasUtility[_user][_utility] = false;
 
+        uint lastIdx = users[_user].userUtilities.length - 1;
+        uint idx = userUtitliesIdx[_user][_utility];
         userUtitliesIdx[_user][users[_user].userUtilities[lastIdx]] = idx;
 
         users[_user].userUtilities[idx] = users[_user].userUtilities[lastIdx];
         users[_user].userUtilities.pop();
+
+        // ---------------------------
+
+        lastIdx = users[_user].dnt[_dnt].userUtils.length - 1;
+        idx = userUtilitiesInDntIdx[_user][_utility];
+        userUtilitiesInDntIdx[_user][users[_user].dnt[_dnt].userUtils[lastIdx]] = idx;
+
         users[_user].dnt[_dnt].userUtils[idx] = users[_user].dnt[_dnt].userUtils[lastIdx];
         users[_user].dnt[_dnt].userUtils.pop();
     }
@@ -699,18 +719,51 @@ contract NDistributor is AccessControl {
         uint256 _amount,
         string memory _utility,
         string memory _dnt
-    ) public onlyRole(MANAGER) dntInterface(_dnt) {
+    ) public {
+        _transferDnt(_from, _to, _amount, _utility, _dnt);
+        emit Transfer(_from, _to, _amount, _utility, _dnt);
+    }
+    
+    /// @notice transfers tokens between users
+    /// @param _from => token sender
+    /// @param _to => token recepient
+    /// @param _amount => amount of tokens to send
+    /// @param _utility => transfered dnt utility
+    /// @param _dnt => transfered DNT
+    function _transferDnt(
+        address _from,
+        address _to,
+        uint256 _amount,
+        string memory _utility,
+        string memory _dnt
+    ) private onlyRole(MANAGER) dntInterface(_dnt) {
         if (_from == _to) return;
         
          // check needed so that during the burning of tokens, they are not issued to the zero address
         if (_to != address(0)) {
             liquidStaking.addStaker(_to, _utility);
+            require(_amount > 0, "Amount should be greater than zero");
+            require(
+                utilityDB[utilityId[_utility]].isActive == true,
+                "Invalid utility!"
+            );
             issueTransferDnt(_to, _amount, _utility, _dnt);
+            liquidStaking.updateUserBalanceInUtility(_utility, _to);
         }
 
-        if (_from != address(0)) removeTransferDnt(_from, _amount, _utility, _dnt);
-
-        emit Transfer(_from, _to, _amount, _utility, _dnt);
+        if (_from != address(0)) { 
+            require(_amount > 0, "Amount should be greater than zero");
+            require(
+                utilityDB[utilityId[_utility]].isActive == true,
+                "Invalid utility!"
+            );
+            require(
+                users[_account].dnt[_dnt].dntInUtil[_utility] >= _amount,
+                "Not enough DNT in utility!"
+            );
+            removeTransferDnt(_from, _amount, _utility, _dnt);
+            liquidStaking.updateUserBalanceInUtility(_utility, _from);
+        }
     }
 
     /// @notice allows to set a utility to free tokens (marked with null utility)
@@ -850,4 +903,214 @@ contract NDistributor is AccessControl {
         _revokeRole(role, account);
     }
 
+    // ----------------------------------
+    function _concat(string memory str1, string memory str2) private returns(string memory) {
+        return string(abi.encodePacked(str1, str2));
+    }
+
+    function transferUndefined(
+        address from,
+        address to,
+        uint256 amount,
+        string memory dnt
+    ) external onlyRole(MANAGER) dntInterface(dnt) returns (
+        string[] memory,
+        uint256[] memory,
+        string memory,
+        uint256
+    ) {
+        if (amount == 0) return;
+        require(to != address(0), "Cant transfer to zero address");
+
+        (string[] memory utilities, uint256[] memory amounts) = listUserDntInUtils(from, dnt);
+        (string[] memory utilitiesToTransfer, uint256[] memory amountsToTransfer);
+
+        bytes32 _undefined = keccak256(abi.encodePacked(UNDEFINED));
+        uint256 undefinedAmount;
+        uint256 l = utilities.length;
+        for (uint256 i; i < l; i++) {
+            if (amounts[i] > 0) {
+                uint256 toTransfer = amount > amounts[i] ? amounts[i] : amount;
+                if (keccak256(abi.encodePacked(utilities[i])) == _undefined) {
+                    _transferDnt(from, to, toTransfer, UNDEFINED, dnt);
+                    amount -= toTransfer;
+                } else {
+                    _transferDnt(from, address(this), toTransfer, utilities[i], dnt);
+                    utilitiesToTransfer.push(utilities[i]);
+                    amountsToTransfer.push(toTransfer);
+
+                    amount -= toTransfer;
+                    undefinedAmount += toTransfer;
+                }
+                if (amount == 0) break;
+            }
+        }
+
+        require(amount == 0, "Have no tokens");
+        require(undefinedAmount > 0, "Cant transfer nothing");
+        _transferDnt(address(0), to, undefinedAmount, UNDEFINED, dnt);
+        totalDnt[dnt] += undefinedAmount;
+
+        string memory uDnt = _concat(UNDEFINED, dnt);
+        for (uint256 i; i < l; i++) 
+            if (amounts[i] > 0) issueTransferDnt(address(this), amountsToTransfer[i], _concat(UNDEFINED, utilitiesToTransfer[i]), uDnt);
+
+        totalDnt[uDnt] += undefinedAmount;
+        return (utilitiesToTransfer[i], amountsToTransfer[i], UNDEFINED, undefinedAmount);
+    }
+
+    function addToReservedPool(
+        string[] memory utilities, 
+        string[] memory amounts, 
+        string memory dnt
+    ) external onlyRole(MANAGER) dntInterface(dnt) {
+        string memory uDnt = _concat(UNDEFINED, dnt);
+        string memory rDnt = _concat(RESERVED, dnt);
+        uint256 reservedAmount;
+
+        bytes32 _undefined = keccak256(abi.encodePacked(UNDEFINED));
+        uint256 l = utilities.length;
+        for (uint256 i; i < l; i++) {
+            if (keccak256(abi.encodePacked(utilities[i])) == _undefined) {
+                amounts[i] = 0;
+            } else {
+                removeTransferDnt(address(this), amounts[i], _concat(UNDEFINED, utilities[i]), uDnt);
+                issueTransferDnt(address(this), amounts[i], _concat(RESERVED, utilities[i]), rDnt);
+                reservedAmount += amounts[i];
+            }
+        }
+
+        totalDnt[uDnt] -= reservedAmount;
+        totalDnt[rDnt] += reservedAmount;
+    }
+
+    function defineUtilitiesFromPool(
+        address from,
+        address to,
+        uint256 undefinedAmount,
+        string memory dnt,
+        string memory pool
+    ) private returns (uint256) {
+        string memory poolDnt = _concat(pool, dnt);
+
+        (freeUtilities, uint256[] memory freeAmounts) = listUserDntInUtils(address(this), poolDnt);
+        uint256 amountFromPool = undefinedAmount > totalDntInUtil(poolDnt) ? totalDntInUtil(poolDnt) : undefinedAmount;
+        uint256 defineP = amountFromdPool * 1e12 / totalDntInUtil(poolDnt);
+        
+        uint256 toTransfer;
+        uint256 l = utilities.length;
+        for (uint256 i; i < l; i++) {
+            amounts[i] = freeAmounts[i] * defineP / 1e12;
+            removeTransferDnt(address(this), amounts[i], _concat(pool, utilities[i]), poolDnt);
+            toTransfer += amounts[i];
+        }
+
+        /// @dev A fallback function for adding debt due to the peculiarities of the Solidity calculation
+        if (toTransfer < amountFromPool) {
+            uint256 debt = amountFromPool - toTransfer;
+            for (uint256 i; i < l; i++) {
+                uint256 residue = freeAmounts[i] - amounts[i];
+                uint256 toAdd = residue > debt ? debt : residue;
+                amounts[i] += toAdd;
+                removeTransferDnt(address(this), toAdd, _concat(pool, utilities[i]), poolDnt);
+
+                if (debt == toAdd) break;
+                debt -= toAdd;
+            }
+        }
+        
+        multiTransferDnts(address(this), to, amounts, freeUtilities, dnt);
+        DNTContract.multiTransferDntsInNftDistr(address(this), to, freeUtilities, amounts);
+        _transferDnt(from, address(0), amountFromPool, UNDEFINED, dnt);
+        DNTContract.transferDntInNftDistr(from, address(0), UNDEFINED, amountFromPool);
+        
+        return amountFromPool;
+    }
+
+    function defineUtilitiesFromUndefinedPool(
+        address from,
+        address to,
+        uint256 undefinedAmount,
+        string memory dnt
+    ) public onlyRole(MANAGER) dntInterface(dnt) {
+        require(to != address(0), "Cant transfer to zero address");
+        require(getUserDntBalanceInUtil(from, UNDEFINED, dnt) >= undefinedAmount, "Not enough undefined tokens");
+
+        uint256 definedAmount = defineUtilitiesFromPool(from, to, undefinedAmount, dnt, UNDEFINED);
+        if (undefinedAmount > definedAmount) 
+            definedAmount += defineUtilitiesFromPool(from, to, undefinedAmount - definedAmount, dnt, RESERVED);
+        
+        require(definedAmount == undefinedAmount, "Not enough tokens to define");
+    }
+
+    function defineSpecificUtilities(
+        address from,
+        address to,
+        string[] memory utilities, 
+        string[] memory amounts,
+        string memory dnt,
+        string memory pool
+    ) private returns (
+        uint256,
+        uint256,
+        string[] memory,
+        uint256[] memory
+     ) {
+        require(to != address(0), "Cant transfer to zero address");
+
+        string memory poolDnt = _concat(pool, dnt);
+        uint256 totalAmount;
+        uint256 definedAmount;
+
+        uint256 l = utilities.length;
+        for (uint256 i; i < l; i++) {
+            uint256 utilBalance = getUserDntBalanceInUtil(address(this), _concat(pool, utilities[i]), poolDnt);
+            uint256 toDefine = utilBalance > amounts[i] ? amounts[i] : utilBalance;
+            totalAmount += amounts[i];
+            if (amounts[i] < utilBalance) {
+                definedAmount += utilBalance;
+                amounts[i] = utilBalance;
+            }
+            removeTransferDnt(address(this), amounts[i], _concat(pool, utilities[i]), poolDnt);
+        }
+
+        require(getUserDntBalanceInUtil(from, UNDEFINED, dnt) >= definedAmount, "Not enough undefined tokens");
+
+        multiTransferDnts(address(this), to, amounts, utilities, dnt);
+        DNTContract.multiTransferDntsInNftDistr(address(this), to, utilities, amounts);
+        _transferDnt(from, address(0), definedAmount, UNDEFINED, dnt);
+        DNTContract.transferDntInNftDistr(from, address(0), UNDEFINED, definedAmount);
+
+        return (totalAmount, definedAmount, utilities, amounts);
+    }
+
+    function defineSpecificUtilitiesFromUndefinedPool(
+        address from,
+        address to,
+        string[] memory utilities, 
+        string[] memory amounts,
+        string memory dnt
+    ) external onlyRole(MANAGER) dntInterface(dnt) returns (
+        uint256,
+        uint256,
+        string[] memory,
+        uint256[] memory
+    ) {
+        return defineSpecificUtilities(from, to, utilities, amounts, dnt, UNDEFINED);
+    }
+
+    function defineSpecificUtilitiesFromReservedPool(
+        address from,
+        address to,
+        string[] memory utilities, 
+        string[] memory amounts,
+        string memory dnt
+    ) external onlyRole(MANAGER) dntInterface(dnt) returns (
+        uint256,
+        uint256,
+        string[] memory,
+        uint256[] memory
+    ) {
+        return defineSpecificUtilities(from, to, utilities, amounts, dnt, RESERVED);
+    }
 }

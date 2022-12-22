@@ -29,7 +29,7 @@ contract Algem721 is ERC721PresetMinterPauserAutoIdUpgradeable {
         super.initialize(name, symbol, baseTokenURI);
         _baseTokenURI = baseTokenURI;
 
-        _setupRole(MANAGER_ROLE, _msgSender());
+        _grantRole(MANAGER_ROLE, msg.sender);
     }   
 
     function initialize2(
