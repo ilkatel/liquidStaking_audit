@@ -1,204 +1,12 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./interfaces/DappsStaking.sol";
-import "./NDistributor.sol";
-import "./interfaces/IDNT.sol";
-import "./interfaces/IPartnerHandler.sol"; /* 1 -> 1.5 will removed with next proxy update */
-import "./interfaces/INFTDistributor.sol";
-import "./interfaces/IAdaptersDistributor.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "./LiquidStakingStorage.sol";
 
-contract LiquidStaking is AccessControl {
-    DappsStaking public constant DAPPS_STAKING =
-        DappsStaking(0x0000000000000000000000000000000000005001);
-    bytes32 public constant MANAGER = keccak256("MANAGER");
-
-    /// @notice settings for distributor
-    string public utilName;
-    string public DNTname;
-
-    /// @notice core values
-    uint public totalBalance;
-    uint public withdrawBlock;
-
-    /// @notice pool values
-    uint public unstakingPool;
-    uint public rewardPool;
-
-    /// @notice distributor data
-    NDistributor public distr;
-
-    /* unused and will removed with next proxy update */struct Stake { 
-    /* unused and will removed with next proxy update */    uint totalBalance;
-    /* unused and will removed with next proxy update */    uint eraStarted;
-    /* unused and will removed with next proxy update */}
-    /* unused and will removed with next proxy update */mapping(address => Stake) public stakes;
-
-    /// @notice user requested withdrawals
-    struct Withdrawal {
-        uint val;
-        uint eraReq;
-        uint lag;
-    }
-    mapping(address => Withdrawal[]) internal withdrawals;
-
-    /* unused and will removed with next proxy update */// @notice useful values per era
-    /* unused and will removed with next proxy update */struct eraData {
-    /* unused and will removed with next proxy update */    bool done;
-    /* unused and will removed with next proxy update */    uint val;
-    /* unused and will removed with next proxy update */}
-    /* unused and will removed with next proxy update */mapping(uint => eraData) public eraUnstaked;
-    /* unused and will removed with next proxy update */mapping(uint => eraData) public eraStakerReward; // total staker rewards per era
-    /* unused and will removed with next proxy update */mapping(uint => eraData) public eraRevenue; // total revenue per era
-
-    uint public unbondedPool;
-
-    uint public lastUpdated; // last era updated everything
-
-    // Reward handlers
-    /* unused and will removed with next proxy update */ address[] public stakers;
-    /* unused and will removed with next proxy update */address public dntToken;
-    mapping(address => bool) public isStaker;
-
-    /* unused and will removed with next proxy update */uint public lastStaked;
-    uint public lastUnstaked;
-
-    /* unused and will removed with next proxy update */// @notice handlers for work with LP tokens
-    /* unused and will removed with next proxy update */mapping(address => bool) public isLpToken;
-    /* unused and will removed with next proxy update */address[] public lpTokens;
-
-    /* unused and will removed with next proxy update */mapping(uint => uint) public eraRewards;
-
-    uint public totalRevenue;
-
-    /* remove after migration */mapping(address => mapping(uint => uint)) public buffer;
-    mapping(address => mapping(uint => uint[])) public usersShotsPerEra;  /* 1 -> 1.5 will removed with next proxy update */
-    mapping(address => uint) internal totalUserRewards;
-    /* unused and will removed with next proxy update */mapping(address => address) public lpHandlers;
-
-    uint public eraShotsLimit;  /* 1 -> 1.5 will removed with next proxy update */
-    /* unused and will removed with next proxy update */uint public lastClaimed;
-    uint public minStakeAmount;
-    /* remove after migration */ uint public sum2unstake;
-    /* unused and will removed with next proxy update */bool public isUnstakes;
-    /* unused and will removed with next proxy update */uint public claimingTxLimit;  // = 5;
-
-    uint8 public constant REVENUE_FEE = 9; // 9% fee on MANAGEMENT_FEE
-    uint8 public constant UNSTAKING_FEE = 1; // 1% fee on MANAGEMENT_FEE
-    uint8 public constant MANAGEMENT_FEE = 10; // 10% fee on staking rewards
-
-    // to partners will be added handlers and adapters. All handlers will be removed in future
-    /* unused and will removed with next proxy update */mapping(address => bool) public isPartner;
-    /* unused and will removed with next proxy update */mapping(address => uint) public partnerIdx;
-    address[] public partners;  /* 1 -> 1.5 will removed with next proxy update */
-    /* unused and will removed with next proxy update */uint public partnersLimit;  // = 15;
-
-    struct Dapp {
-        address dappAddress;
-        uint256 stakedBalance;
-        uint256 sum2unstake;
-        mapping(address => Staker) stakers;
-    }
-
-    struct Staker {
-        // era => era balance
-        mapping(uint256 => uint256) eraBalance;
-        // era => is zero balance
-        mapping(uint256 => bool) isZeroBalance;
-
-        uint256 rewards;
-        uint256 lastClaimedEra;
-    }
-    uint256 public lastEraTotalBalance;
-    uint256[2] public eraBuffer;
-
-    string[] public dappsList;
-    // util name => dapp
-    mapping(string => Dapp) public dapps;
-    mapping(string => bool) public haveUtility;
-    mapping(string => bool) public isActive;
-    mapping(string => uint256) public deactivationEra;
-    mapping(uint256 => uint256) accumulatedRewardsPerShare;
-
-    uint256 public constant REWARDS_PRECISION = 1e12;
-
-    INFTDistributor public nftDistr;
-    IAdaptersDistributor public adaptersDistr;
-
-    event Staked(address indexed user, uint val);
-    event StakedInUtility(address indexed user, string indexed utility, uint val);
-    event Unstaked(address indexed user, uint amount, bool immediate);
-    event UnstakedFromUtility(address indexed user, string indexed utility, uint amount, bool immediate);
-    event Withdrawn(address indexed user, uint val);
-    event Claimed(address indexed user, uint amount);
-    event ClaimedFromUtility(address indexed user, string indexed utility, uint amount);
-
-    event HarvestRewards(address indexed user, string indexed utility, uint amount);
-
-    // events for events handle
-    event UnbondAndUnstakeError(string indexed utility, uint sum2unstake, uint indexed era, bytes indexed reason);
-    event WithdrawUnbondedError(uint indexed _era, bytes indexed reason);
-    event ClaimDappError(uint indexed amount, uint indexed era, bytes indexed reason);
-    event SetMinStakeAmount(address indexed sender, uint amount);
-    event WithdrawRevenue(uint amount);
-    event Synchronization(address indexed sender, uint indexed era);
-    event FillUnstaking(address indexed sender, uint value);
-    event FillRewardPool(address indexed sender, uint value);
-    event FillUnbonded(address indexed sender, uint value);
-    event ClaimDappSuccess(uint eraStakerReward, uint indexed _era);
-    event WithdrawUnbondedSuccess(uint indexed _era);
-    event UnbondAndUnstakeSuccess(uint indexed era, uint sum2unstake);
-    event ClaimStakerSuccess(uint indexed era, uint lastClaimed);
-    event ClaimStakerError(string indexed utility, uint indexed era, bytes indexed reason);
-
-    using Address for address payable;
-    using Address for address;
-
-     constructor(
-        string memory _dntName,
-        string memory _dntUtil,
-        address _distrAddr
-    ) {
-        require(_distrAddr.isContract(), "_distrAddr should be contract address");
-        DNTname = _dntName;
-        utilName = _dntUtil;
-
-        uint256 era = currentEra() - 1;
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MANAGER, msg.sender);
-        setMinStakeAmount(10);
-        withdrawBlock = DAPPS_STAKING.read_unbonding_period();
-
-        distr = NDistributor(_distrAddr);
-
-        lastUpdated = era;
-        lastStaked = era;
-        lastUnstaked = era;
-        lastClaimed = era;
-
-        dappsList.push(_dntUtil);
-        haveUtility[_dntUtil] = true;
-        isActive[_dntUtil] = true;
-        dapps[_dntUtil].dappAddress = address(this);
-    }
-
-    function initialize2(address _nftDistr, address _adaptersDistr) external onlyRole(MANAGER) {
-        nftDistr = INFTDistributor(_nftDistr);
-        adaptersDistr = IAdaptersDistributor(_adaptersDistr);
-
-        _grantRole(MANAGER, _nftDistr);
-        _grantRole(MANAGER, _adaptersDistr);
-
-        dapps[utilName].sum2unstake = sum2unstake;
-        dapps[utilName].stakedBalance = distr.totalDntInUtil(utilName); 
-        lastEraTotalBalance = distr.getTotalDnt(DNTname);
-    }
-
-    // --------------------------------------------------------------------
-    // Modifiers ----------------------------------------------------------
-    // -------------------------------------------------------------------- 
+contract LiquidStakingMain is AccessControlUpgradeable, LiquidStakingStorage {
+    using AddressUpgradeable for address payable;
+    using AddressUpgradeable for address;
 
     /// @notice check arrays length
     /// @param _utilities => utilities to check length
@@ -383,7 +191,7 @@ contract LiquidStaking is AccessControl {
 
     /// @notice finish previously opened withdrawal
     /// @param _id => withdrawal index
-    function withdraw(uint _id) external updateAll {
+    function withdraw(uint _id) external updateAll() {
         Withdrawal storage withdrawal = withdrawals[msg.sender][_id];
         uint val = withdrawal.val;
         uint era = currentEra();
@@ -421,7 +229,7 @@ contract LiquidStaking is AccessControl {
         uint256 l = dappsList.length;
 
         /// @custom:defimoon-note separately, we collect rewards for the first unclaimed era and for all the rest.
-        /// this is due to the fact that <lastEraTotalBalance> is updated at the moment of the previous era, 
+        /// this is due to the fact that <lastEtaTotalBalance> is updated at the moment of the previous era, 
         /// and if the <updates()> function is not called in the next era, then the balance staked in the current era 
         /// will not participate in the <accumulatedRewardsPerShare> calculation.
         /// Therefore, to avoid such situations, the balance for subsequent eras is written to <eraBuffer>.
@@ -481,7 +289,7 @@ contract LiquidStaking is AccessControl {
         (eraBuffer[0], eraBuffer[1]) = (0, 0);
         // update last era balance
         // last era balance = balance that participates in the current era
-        lastEraTotalBalance = distr.getTotalDnt(DNTname);
+        lastEraTotalBalance = distr.totalDnt(DNTname);
     }   
 
     /// @notice claim staker rewards from utility
@@ -565,33 +373,6 @@ contract LiquidStaking is AccessControl {
     // Management functions // For ADMIN and MANAGER roles ----------------
     // --------------------------------------------------------------------
 
-    /// @notice add new partner dapp
-    /// @param _utility => dapp utility name
-    /// @param _dapp => dapp address
-    function addDapp(string memory _utility, address _dapp) external onlyRole(MANAGER) {
-        require(_dapp != address(0), "Incorrect dapp address");
-        require(!haveUtility[_utility], "Utility already added");
-
-        distr.addUtility(_utility);
-        dappsList.push(_utility);
-        haveUtility[_utility] = true;
-        isActive[_utility] = true;
-        dapps[_utility].dappAddress = _dapp;
-    }
-    
-    /// @notice activate or deactivate interaction with dapp
-    /// @param _utility => dapp utility name
-    /// @param _state => state variable
-    function setDappStatus(string memory _utility, bool _state) external onlyRole(MANAGER) {
-        require(haveUtility[_utility], "No such this utility");
-        isActive[_utility] = _state;
-        if (!_state) {
-            // set deactivation era
-            // if dapp is not active - cant stake, but can unstake and withdraw
-            deactivationEra[_utility] = currentEra() + withdrawBlock;
-        }
-    }
-
     /// @notice utility function in case of excess gas consumption
     function sync(uint _era) external onlyRole(MANAGER) {
         require(_era > lastUpdated && _era <= currentEra(), "Wrong era range");
@@ -606,70 +387,8 @@ contract LiquidStaking is AccessControl {
     onlyRole(MANAGER)
     updateRewards(_user, _utilities) {}
 
-    /// @notice sets min stake amount
-    /// @param _amount => new min stake amount
-    function setMinStakeAmount(uint _amount) public onlyRole(MANAGER) {
-        require(_amount > 0, "Should be greater than zero!");
-        minStakeAmount = _amount;
-        emit SetMinStakeAmount(msg.sender, _amount);
-    }
     
-    // /// @notice manually fill the unbonded pool
-    // function fillUnbonded() external payable {
-    //     require(msg.value > 0, "Provide some value!");
-    //     unbondedPool += msg.value;
 
-    //     emit FillUnbonded(msg.sender, msg.value);
-    // }
-
-    // /// @notice utility func for filling reward pool manually
-    // function fillRewardPool() external payable {
-    //     require(msg.value > 0, "Provide some value!");
-    //     rewardPool += msg.value;
-
-    //     emit FillRewardPool(msg.sender, msg.value);
-    // }
-
-    // /// @notice manually fill the unstaking pool
-    // function fillUnstaking() external payable {
-    //     require(msg.value > 0, "Provide some value!");
-    //     unstakingPool += msg.value;
-
-    //     emit FillUnstaking(msg.sender, msg.value);
-    // }
-
-    // /// @notice withdraw revenu function
-    // function withdrawRevenue(uint _amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     require(totalRevenue >= _amount, "Not enough funds in revenue pool");
-    //     totalRevenue -= _amount;
-    //     payable(msg.sender).sendValue(_amount);
-
-    //     emit WithdrawRevenue(_amount);
-    // }
-
-    // /// @notice disabled revoke ownership functionality
-    // function revokeRole(bytes32 role, address account)
-    //     public
-    //     override
-    //     onlyRole(getRoleAdmin(role))
-    // {
-    //     require(role != DEFAULT_ADMIN_ROLE, "Not allowed to revoke admin role");
-    //     _revokeRole(role, account);
-    // }
-
-    // /// @notice disabled revoke ownership functionality
-    // function renounceRole(bytes32 role, address account) public override {
-    //     require(
-    //         account == _msgSender(),
-    //         "AccessControl: can only renounce roles for self"
-    //     );
-    //     require(
-    //         role != DEFAULT_ADMIN_ROLE,
-    //         "Not allowed to renounce admin role"
-    //     );
-    //     _revokeRole(role, account);
-    // }
-    
     // --------------------------------------------------------------------
     // Management functions // For Distributors contracts -----------------
     // --------------------------------------------------------------------
@@ -710,7 +429,7 @@ contract LiquidStaking is AccessControl {
     /// @param _user => user address
     function _updateUserBalanceInUtility(string memory _utility, address _user) private  {
         require(_user != address(0), "Zero address alarm!");
-        uint256 _amount = distr.getUserDntBalanceInUtil(_user, _utility, DNTname);
+        uint256 _amount = distr1_5.getUserDntBalanceInUtil(_user, _utility, DNTname);
         _updateUserBalance(_utility, _user, _amount);
     }
 
@@ -771,7 +490,7 @@ contract LiquidStaking is AccessControl {
             }
         }
 
-        require(transferAmount > 0, "Nothing to claim");
+        require(transferAmount > 0, "Nothing to cliam");
         payable(msg.sender).sendValue(transferAmount);
 
         emit Claimed(msg.sender, transferAmount);
@@ -854,11 +573,6 @@ contract LiquidStaking is AccessControl {
     // View functions // --------------------------------------------------
     // --------------------------------------------------------------------
 
-    /// @notice get current era
-    function currentEra() public view returns (uint) {
-        return DAPPS_STAKING.read_current_era();
-    }
-
     /// @notice preview all eser rewards from utility at current era
     /// @param _utility => utility
     /// @param _user => user address
@@ -867,118 +581,4 @@ contract LiquidStaking is AccessControl {
         (uint256[2] memory userData, , , ) = calcUserRewards(_utility, _user);
         return userData[1] + dapps[_utility].stakers[_user].rewards;
     }
-    
-    /// @notice return users rewards
-    /// @param _user => user address
-    function getUserRewards(address _user) external view returns (uint) {
-        return totalUserRewards[_user];
-    }
-
-    /// @notice returns user active withdrawals
-    function getUserWithdrawals() external view returns (Withdrawal[] memory) {
-        return withdrawals[msg.sender];
-    }
-
-    // --------------------------------------------------------------------
-    // Misk 1 -> 1.5 // Will removed with next proxy update ---------------
-    // Functions for a smooth transition from handlers to adapters --------
-    // --------------------------------------------------------------------
-    
-    // /// @notice iterate by each partner address and get user rewards from handlers
-    // /// @param _user shows share of user in nTokens
-    // function getUserLpTokens(address _user) public view returns (uint amount) {
-    //     if (partners.length == 0) return 0;
-    //     for (uint i; i < partners.length; i++) {
-    //         amount += IPartnerHandler(partners[i]).calc(_user);
-    //     }
-    // }
-    
-    // /// @notice sorts the list in ascending order and return mean
-    // /// @param _arr array with user's shares
-    // function findMedian(uint[] memory _arr) private pure returns (uint mean) {
-    //     uint[] memory arr = _arr;
-    //     uint len = arr.length;
-    //     bool swapped = false;
-    //     for (uint i; i < len - 1; i++) {
-    //         for (uint j; j < len - i - 1; j++) {
-    //             if (arr[j] > arr[j + 1]) {
-    //                 swapped = true;
-    //                 uint s = arr[j + 1];
-    //                 arr[j + 1] = arr[j];
-    //                 arr[j] = s;
-    //             }
-    //         }
-    //         if (!swapped) {
-    //             return arr[len/2];
-    //         }
-    //     }
-    //     if (len % 2 == 0) return (arr[len/2] + arr[len/2 - 1])/2;
-    //     return arr[len/2];
-    // }
-
-    // /// @notice saving information about users balances
-    // /// @param _user user's address
-    // function eraShot(address _user) external onlyRole(MANAGER) {
-    //     require(_user != address(0), "Zero address alarm!");        
-        
-    //     uint era = currentEra();
-    //     require(usersShotsPerEra[_user][era].length <= eraShotsLimit, "Too much era shots");
-
-    //     // checks if _user haven't shots in era yet
-    //     if (usersShotsPerEra[_user][era].length == 0) {
-    //         uint[] memory arr = usersShotsPerEra[_user][era - 1];
-
-    //         if (arr.length > 0) {
-    //             uint256 _amount = findMedian(arr);
-
-    //             Staker storage staker = dapps["AdaptersUtility"].stakers[_user];    
-    //             staker.eraBalance[era] += _amount;
-
-    //             if (staker.eraBalance[era] == 0) {
-    //                 staker.isZeroBalance[era] = true;
-    //             } else {
-    //                 staker.isZeroBalance[era] = false;
-    //             }   
-                
-    //             if (dapps["AdaptersUtility"].stakers[_user].lastClaimedEra == 0) {
-    //                 dapps["AdaptersUtility"].stakers[_user].lastClaimedEra = era + 1;
-    //             }
-    //         }
-    //     }
-
-    //     uint lpBal = getUserLpTokens(_user);
-    //     usersShotsPerEra[_user][era].push(lpBal);
-    // }
-
-    // --------------------------------------------------------------------
-    // Migration // Function to migrate values from buffer ----------------
-    // --------------------------------------------------------------------
-
-    // /// @notice function for migrating users storage
-    // /// @param _user => user address
-    // /// @dev the beginning of the migration must be carried out at the beginning of a new era
-    // /// @dev before starting the migration, you must first call eraShot 
-    // ///      for each user to calculate his rewards for the past era
-    // /// @dev before starting the migration, you need to make a claim of 
-    // ///      rewards for all past eras and call the sync function for all non-updated eras
-    // function migrateStorage(address _user) external onlyRole(MANAGER) {
-    //     if (_user == address(0)) return;
-
-    //     uint256 _era = currentEra();
-    //     dapps[utilName].stakers[_user].rewards = totalUserRewards[_user];
-    //     dapps[utilName].stakers[_user].eraBalance[_era] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era];
-    //     dapps[utilName].stakers[_user].isZeroBalance[_era] = dapps[utilName].stakers[_user].eraBalance[_era] == 0 ? true : false;
-    //     dapps[utilName].stakers[_user].eraBalance[_era + 1] = distr.getUserDntBalanceInUtil(_user, utilName, DNTname) - buffer[_user][_era + 1];
-    //     dapps[utilName].stakers[_user].isZeroBalance[_era + 1] = dapps[utilName].stakers[_user].eraBalance[_era + 1] == 0 ? true : false;
-    //     dapps[utilName].stakers[_user].lastClaimedEra = _era;
-    // }
-
-    // --------------------------------------------------------------------
-    // Mock functions // Functions for tests only -------------------------
-    // --------------------------------------------------------------------
-
-    /// @notice function for tests
-    function setting() external {
-        DAPPS_STAKING.set_reward_destination(DappsStaking.RewardDestination.FreeBalance);
-    }
-}   
+}
