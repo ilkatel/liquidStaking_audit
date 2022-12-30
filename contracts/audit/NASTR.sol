@@ -29,8 +29,6 @@ contract NASTR is
 
     NFTDistributor public nftDistr;
 
-    mapping(address => bool) public disabledAutoDefine;
-
     using Address for address;
 
     constructor(address _distributor) ERC20("Astar Note", "nASTR") ERC20Permit("Astar Note") {
@@ -125,23 +123,10 @@ contract NASTR is
             distributor.transferDnt(from, to, amount, utilityToTransfer, "nASTR");
             nftDistr.transferDnt(utilityToTransfer, from, to, amount);
         } else if (!isMultiTransfer) {
-            if (msg.sender != tx.origin) {
-                if (to.isContract()) {
-                    (string[] memory utilities,
-                    uint256[] memory amounts,
-                    string memory util,
-                    uint256 returnsAmount) = uint256distributor.transferUndefined(from, to, amount, "nASTR");
-                    if (amount > returnsAmount) nftDistr.transferDnt(util, from, to, amount - returnsAmount);
-
-                    nftDistr.multiTransferDnt(utilities, address(distributor), to, amounts);
-                } else if (!disabledAutoDefine[to]) {
-                    distributor.defineUtilitiesFromUndefinedPool(from, to, amount, "nASTR");
-                }
-            } else {
-                (string[] memory utilities, uint256[] memory amounts) = distributor.transferDnts(from, to, amount, "nASTR");
-                nftDistr.multiTransferDnt(utilities, from, to, amounts);
-            }
+            (string[] memory utilities, uint256[] memory amounts) = distributor.transferDnts(from, to, amount, "nASTR");
+            nftDistr.multiTransferDnt(utilities, from, to, amounts);
         }
+
     }
 
     /* 1.5 upd */
@@ -162,32 +147,5 @@ contract NASTR is
         isMultiTransfer = false;
 
         nftDistr.multiTransferDnt(utilities, msg.sender, to, amounts);
-    }
-
-    // perhaps add the 'to' parameter and make it onlyOwner
-    function setDisabledAutoDefine(bool state) external {
-        disabledAutoDefine[msg.sender] = state;
-    }
-
-    function transferDntInNftDistr(
-        address from,
-        address to,
-        string memory utility,
-        uint256 amount
-    ) external onlyRole(DISTR_ROLE) {
-        nftDistr.transferDnt(utility, from, to, amount);
-    }
-
-    function multiTransferDntsInNftDistr(
-        address from,
-        address to,
-        string[] memory utilities,
-        uint256[] memory amounts
-    ) external onlyRole(DISTR_ROLE) {
-        nftDistr.multiTransferDnt(utilities, from, to, amounts);
-    }
-
-    function autoDefineUtilities(uint256 undefinedAmount) external {
-        distributor.defineUtilitiesFromUndefinedPool(msg.sender, msg.sender, undefinedAmount, "nASTR");
     }
 }
